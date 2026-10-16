@@ -42,15 +42,3 @@ frontend/src        App, componentes, cliente da API
 | POST   | `/api/v1/batches/upload`          | multipart: `file` + `sourceType` (`ERP` \| `BANK`) |
 | POST   | `/api/v1/reconciliations/execute` | dispara a conciliação                             |
 | GET    | `/api/v1/reconciliations/latest`  | resultado consolidado                             |
-
-Hoje as três respostas são **simuladas** (campo `simulated: true`), e o frontend mostra um aviso enquanto isso valer.
-
-## O que falta implementar (procure por `TODO: Implementar lógica de negócio`)
-
-1. `DefaultCsvParserService.parse` — lança `UnsupportedOperationException`. Parsing do CSV (separador, charset, formatos de data e decimal).
-2. `DefaultBatchImportService.receive` — criar o `ImportBatch`, chamar o parser, validar e persistir os lançamentos.
-3. `DefaultReconciliationService.execute` — algoritmo de conciliação (critérios de match, tolerâncias, MATCHED/DIVERGENT/MISSING) e gravação dos `ReconciliationResult`.
-4. `DefaultReconciliationService.getLatest` — agregar a última execução (hoje devolve dados fixos).
-5. Ao terminar, remova o campo `simulated` dos DTOs e o aviso em `App.jsx`.
-
-Qualquer `UnsupportedOperationException` vira HTTP 501 com mensagem legível (`ApiExceptionHandler`), e o frontend a exibe.
