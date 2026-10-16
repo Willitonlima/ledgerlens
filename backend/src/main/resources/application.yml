@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: ledgerlens-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ledgerlens
+    username: ledgerlens
+    password: ledgerlens
+  jpa:
+    open-in-view: false
+    hibernate:
+      # O schema é gerenciado pelo Flyway; o Hibernate apenas valida.
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080
