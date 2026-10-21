@@ -27,6 +27,9 @@ public class ImportBatch {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
+    @Column(name = "file_hash", length = 64)
+    private String fileHash;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BatchStatus status = BatchStatus.RECEIVED;

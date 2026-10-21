@@ -43,14 +43,20 @@ frontend/src        App, componentes, cliente da API
 | POST   | `/api/v1/reconciliations/execute` | dispara a conciliação                             |
 | GET    | `/api/v1/reconciliations/latest`  | resultado consolidado                             |
 
-Hoje as três respostas são **simuladas** (campo `simulated: true`), e o frontend mostra um aviso enquanto isso valer.
+O envio de arquivos CSV está implementado. A conciliação ainda retorna dados simulados.
+
+### Importação de CSV
+
+O upload aceita arquivos `.csv` de até 10 MB e 50.000 registros, com cabeçalho identificando data,
+descrição e valor; referência é opcional. A importação reconhece separadores `;` e `,`, datas `dd/MM/yyyy`
+ou `yyyy-MM-dd`, CSV em UTF-8 (com ou sem BOM) ou ISO-8859-1, e valores como `1.234,56` e `1234.56`.
+Valores negativos (inclusive entre parênteses) são débitos; valores positivos são créditos. A convenção
+é a mesma para os arquivos do ERP e do banco. Reenvios idênticos da mesma origem no mesmo banco/workspace
+são idempotentes.
 
 ## O que falta implementar (procure por `TODO: Implementar lógica de negócio`)
 
-1. `DefaultCsvParserService.parse` — lança `UnsupportedOperationException`. Parsing do CSV (separador, charset, formatos de data e decimal).
-2. `DefaultBatchImportService.receive` — criar o `ImportBatch`, chamar o parser, validar e persistir os lançamentos.
-3. `DefaultReconciliationService.execute` — algoritmo de conciliação (critérios de match, tolerâncias, MATCHED/DIVERGENT/MISSING) e gravação dos `ReconciliationResult`.
-4. `DefaultReconciliationService.getLatest` — agregar a última execução (hoje devolve dados fixos).
-5. Ao terminar, remova o campo `simulated` dos DTOs e o aviso em `App.jsx`.
+1. `DefaultReconciliationService.execute` — algoritmo de conciliação (critérios de match, tolerâncias, MATCHED/DIVERGENT/MISSING) e gravação dos `ReconciliationResult`.
+2. `DefaultReconciliationService.getLatest` — agregar a última execução (hoje devolve dados fixos).
 
 Qualquer `UnsupportedOperationException` vira HTTP 501 com mensagem legível (`ApiExceptionHandler`), e o frontend a exibe.

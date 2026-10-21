@@ -39,7 +39,7 @@ export default function App() {
         [sourceType]: {
           status: "done",
           fileName: file.name,
-          message: `${receipt.recordsImported} lançamentos importados.`,
+          message: receipt.message ?? `${receipt.recordsImported} lançamentos importados.`,
         },
       }));
     } catch (err) {

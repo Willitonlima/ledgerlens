@@ -10,13 +10,17 @@ spring:
     hibernate:
       # O schema é gerenciado pelo Flyway; o Hibernate apenas valida.
       ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
   flyway:
     enabled: true
     locations: classpath:db/migration
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 10MB
+      max-request-size: 11MB
 
 server:
   port: 8080

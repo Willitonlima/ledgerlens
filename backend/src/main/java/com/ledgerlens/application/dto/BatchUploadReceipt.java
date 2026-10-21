@@ -12,7 +12,7 @@ public record BatchUploadReceipt(
         String fileName,
         BatchStatus status,
         int recordsImported,
-        /** true enquanto a resposta for simulada (remova quando implementar a lógica real). */
-        boolean simulated
+        boolean alreadyImported,
+        String message
 ) {
 }

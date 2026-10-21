@@ -6,7 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Garante que o contexto sobe e que a migration V1 foi aplicada. */
+/** Garante que o contexto sobe e que as migrations são aplicadas. */
 class SchemaSmokeTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -21,5 +21,13 @@ class SchemaSmokeTest extends AbstractIntegrationTest {
                 """, Integer.class);
 
         assertThat(tables).isEqualTo(3);
+
+        Integer hashColumn = jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'import_batch'
+                  AND column_name = 'file_hash'
+                """, Integer.class);
+        assertThat(hashColumn).isEqualTo(1);
     }
 }
