@@ -24,3 +24,9 @@ spring:
 
 server:
   port: 8080
+
+ledgerlens:
+  reconciliation:
+    date-tolerance-days: 3
+    amount-tolerance: 0.01
+    minimum-description-similarity: 0.6

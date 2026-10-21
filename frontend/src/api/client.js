@@ -34,6 +34,12 @@ export function executeReconciliation() {
   return request("/api/v1/reconciliations/execute", { method: "POST" });
 }
 
-export function fetchLatestReconciliation() {
-  return request("/api/v1/reconciliations/latest");
+export function fetchLatestReconciliation({ status, page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (status) params.set("status", status);
+  return request(`/api/v1/reconciliations/latest?${params}`);
+}
+
+export function latestReconciliationExportUrl() {
+  return `${BASE_URL}/api/v1/reconciliations/latest/export`;
 }

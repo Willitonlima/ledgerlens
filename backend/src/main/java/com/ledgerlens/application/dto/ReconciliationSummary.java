@@ -11,8 +11,11 @@ public record ReconciliationSummary(
         BigDecimal totalBankAmount,
         int divergentCount,
         int missingCount,
+        int matchedCount,
         List<ReconciliationItem> items,
-        /** true enquanto a resposta for simulada (remova quando implementar a lógica real). */
-        boolean simulated
+        int page,
+        int size,
+        long totalItems,
+        int totalPages
 ) {
 }

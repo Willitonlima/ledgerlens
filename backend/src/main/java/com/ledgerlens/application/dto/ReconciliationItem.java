@@ -1,6 +1,7 @@
 package com.ledgerlens.application.dto;
 
 import com.ledgerlens.domain.MatchStatus;
+import com.ledgerlens.domain.TransactionOrigin;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,6 +13,9 @@ public record ReconciliationItem(
         LocalDate date,
         String description,
         BigDecimal amount,
-        MatchStatus status
+        MatchStatus status,
+        TransactionOrigin origin,
+        BigDecimal differenceAmount,
+        String notes
 ) {
 }

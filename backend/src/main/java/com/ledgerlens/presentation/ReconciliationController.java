@@ -5,7 +5,9 @@ import com.ledgerlens.application.ReconciliationService;
 import com.ledgerlens.application.dto.BatchUploadReceipt;
 import com.ledgerlens.application.dto.ExecutionReceipt;
 import com.ledgerlens.application.dto.ReconciliationSummary;
+import com.ledgerlens.domain.MatchStatus;
 import com.ledgerlens.domain.SourceType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,7 +44,18 @@ public class ReconciliationController {
 
     /** Resultado consolidado da última conciliação. */
     @GetMapping("/reconciliations/latest")
-    public ReconciliationSummary latest() {
-        return reconciliationService.getLatest();
+    public ReconciliationSummary latest(
+            @RequestParam(required = false) MatchStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return reconciliationService.getLatest(status, page, size);
+    }
+
+    @GetMapping(value = "/reconciliations/latest/export", produces = "text/csv")
+    public ResponseEntity<String> exportLatest(@RequestParam(required = false) MatchStatus status) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reconciliation.csv\"")
+                .body(reconciliationService.exportLatest(status));
     }
 }

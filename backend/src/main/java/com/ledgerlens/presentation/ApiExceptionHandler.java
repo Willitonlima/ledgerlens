@@ -2,6 +2,7 @@ package com.ledgerlens.presentation;
 
 import com.ledgerlens.application.CsvValidationException;
 import com.ledgerlens.application.InvalidUploadException;
+import com.ledgerlens.application.ReconciliationPrerequisiteException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -36,6 +37,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle(ex.getStatus() == HttpStatus.UNSUPPORTED_MEDIA_TYPE
                 ? "Tipo de arquivo não suportado" : "Arquivo inválido");
         return ResponseEntity.status(ex.getStatus()).body(problem);
+    }
+
+    @ExceptionHandler(ReconciliationPrerequisiteException.class)
+    public ResponseEntity<ProblemDetail> handleReconciliationPrerequisite(ReconciliationPrerequisiteException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conciliação indisponível");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidParameter(IllegalArgumentException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Parâmetro inválido");
+        return ResponseEntity.badRequest().body(problem);
     }
 
     @Override

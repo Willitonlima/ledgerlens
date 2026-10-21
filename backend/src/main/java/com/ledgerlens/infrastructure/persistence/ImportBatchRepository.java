@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID> {
     Optional<ImportBatch> findBySourceTypeAndFileHash(
             SourceType sourceType, String fileHash);
+
+    Optional<ImportBatch> findFirstBySourceTypeOrderByCreatedAtDescIdDesc(SourceType sourceType);
 }

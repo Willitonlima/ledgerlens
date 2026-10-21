@@ -22,13 +22,15 @@ export default function ResultsTable({ items, loading }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] text-left text-sm">
+      <table className="w-full min-w-[48rem] text-left text-sm">
         <thead className="border-b border-rule text-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Data</th>
             <th className="px-4 py-3 font-medium">Descrição</th>
             <th className="px-4 py-3 text-right font-medium">Valor</th>
             <th className="px-4 py-3 font-medium">Status</th>
+            <th className="px-4 py-3 font-medium">Origem</th>
+            <th className="px-4 py-3 font-medium">Observação</th>
           </tr>
         </thead>
         <tbody>
@@ -42,6 +44,8 @@ export default function ResultsTable({ items, loading }) {
               <td className="px-4 py-3">
                 <StatusBadge status={item.status} />
               </td>
+              <td className="px-4 py-3">{item.origin}</td>
+              <td className="px-4 py-3 text-muted">{item.notes}</td>
             </tr>
           ))}
         </tbody>

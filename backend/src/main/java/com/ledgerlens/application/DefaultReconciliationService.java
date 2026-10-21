@@ -3,58 +3,182 @@ package com.ledgerlens.application;
 import com.ledgerlens.application.dto.ExecutionReceipt;
 import com.ledgerlens.application.dto.ReconciliationItem;
 import com.ledgerlens.application.dto.ReconciliationSummary;
+import com.ledgerlens.config.ReconciliationProperties;
+import com.ledgerlens.domain.FinancialTransaction;
+import com.ledgerlens.domain.ImportBatch;
 import com.ledgerlens.domain.MatchStatus;
+import com.ledgerlens.domain.ReconciliationResult;
+import com.ledgerlens.domain.ReconciliationRun;
+import com.ledgerlens.domain.SourceType;
+import com.ledgerlens.domain.TransactionOrigin;
+import com.ledgerlens.infrastructure.persistence.FinancialTransactionRepository;
+import com.ledgerlens.infrastructure.persistence.ImportBatchRepository;
+import com.ledgerlens.infrastructure.persistence.ReconciliationResultRepository;
+import com.ledgerlens.infrastructure.persistence.ReconciliationRunRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class DefaultReconciliationService implements ReconciliationService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
+    private final ImportBatchRepository importBatchRepository;
+    private final FinancialTransactionRepository financialTransactionRepository;
+    private final ReconciliationResultRepository reconciliationResultRepository;
+    private final ReconciliationRunRepository reconciliationRunRepository;
+    private final ReconciliationMatcher matcher;
+
+    public DefaultReconciliationService(
+            ImportBatchRepository importBatchRepository,
+            FinancialTransactionRepository financialTransactionRepository,
+            ReconciliationResultRepository reconciliationResultRepository,
+            ReconciliationRunRepository reconciliationRunRepository,
+            ReconciliationProperties properties) {
+        this.importBatchRepository = importBatchRepository;
+        this.financialTransactionRepository = financialTransactionRepository;
+        this.reconciliationResultRepository = reconciliationResultRepository;
+        this.reconciliationRunRepository = reconciliationRunRepository;
+        this.matcher = new ReconciliationMatcher(properties);
+    }
+
     @Override
+    @Transactional
     public ExecutionReceipt execute() {
-        // TODO: Implementar lógica de negócio.
-        //  - Carregar os lançamentos ERP e BANK (FinancialTransactionRepository).
-        //  - Definir os critérios de match (data, valor, descrição, referência externa) e tolerâncias.
-        //  - Classificar cada par como MATCHED / DIVERGENT / MISSING.
-        //  - Persistir os ReconciliationResult com um mesmo runId.
-        //
-        // Resposta SIMULADA: nenhum cálculo é feito.
-        return new ExecutionReceipt(UUID.randomUUID(), Instant.now(), true);
+        ImportBatch erpBatch = importBatchRepository.findFirstBySourceTypeOrderByCreatedAtDescIdDesc(SourceType.ERP)
+                .orElseThrow(DefaultReconciliationService::missingSourceException);
+        ImportBatch bankBatch = importBatchRepository.findFirstBySourceTypeOrderByCreatedAtDescIdDesc(SourceType.BANK)
+                .orElseThrow(DefaultReconciliationService::missingSourceException);
+
+        Instant executedAt = Instant.now();
+        UUID runId = UUID.randomUUID();
+        reconciliationRunRepository.save(new ReconciliationRun(runId, executedAt));
+
+        List<FinancialTransaction> erpTransactions =
+                financialTransactionRepository.findByBatchIdOrderByCreatedAtAscIdAsc(erpBatch.getId());
+        List<FinancialTransaction> bankTransactions =
+                financialTransactionRepository.findByBatchIdOrderByCreatedAtAscIdAsc(bankBatch.getId());
+        List<ReconciliationResult> results =
+                matcher.reconcile(erpTransactions, bankTransactions, runId, executedAt);
+        reconciliationResultRepository.saveAll(results);
+        return new ExecutionReceipt(runId, executedAt);
     }
 
     @Override
-    public ReconciliationSummary getLatest() {
-        // TODO: Implementar lógica de negócio.
-        //  Buscar o runId mais recente em ReconciliationResultRepository e agregar:
-        //  totais por origem, contagem de divergentes e ausentes, e as linhas do resultado.
-        //
-        // Resposta SIMULADA: dados fixos e arbitrários, apenas para a interface ter o que exibir.
-        List<ReconciliationItem> items = List.of(
-                item("2026-10-01", "Pagamento fornecedor Alfa Logística", "-4250.00", MatchStatus.MATCHED),
-                item("2026-10-02", "Recebimento cliente Beta Comércio", "8900.00", MatchStatus.MATCHED),
-                item("2026-10-03", "Tarifa bancária mensal", "-49.90", MatchStatus.DIVERGENT),
-                item("2026-10-05", "Transferência Gama Serviços", "-1320.00", MatchStatus.MISSING),
-                item("2026-10-07", "Pagamento de energia elétrica", "-780.35", MatchStatus.MATCHED),
-                item("2026-10-09", "Recebimento cliente Delta Ltda", "3150.00", MatchStatus.DIVERGENT)
-        );
+    @Transactional(readOnly = true)
+    public ReconciliationSummary getLatest(MatchStatus status, int page, int size) {
+        validatePage(page, size);
+        var latestRun = reconciliationRunRepository.findFirstByOrderByExecutedAtDescRunIdDesc();
+        if (latestRun.isEmpty()) {
+            return emptySummary(page, size);
+        }
 
+        UUID runId = latestRun.get().getRunId();
+        ReconciliationResultRepository.ReconciliationStats stats = reconciliationResultRepository.summarize(runId);
+        Page<ReconciliationResult> results = reconciliationResultRepository.findPage(
+                runId, status, PageRequest.of(page, size));
+
+        List<ReconciliationItem> items = results.getContent().stream()
+                .map(DefaultReconciliationService::toItem)
+                .toList();
         return new ReconciliationSummary(
-                Instant.now(),
-                new BigDecimal("18495.35"),
-                new BigDecimal("17175.35"),
-                2,
-                1,
+                latestRun.get().getExecutedAt(),
+                zeroIfNull(stats.getTotalErpAmount()),
+                zeroIfNull(stats.getTotalBankAmount()),
+                Math.toIntExact(stats.getDivergentCount()),
+                Math.toIntExact(stats.getMissingCount()),
+                Math.toIntExact(stats.getMatchedCount()),
                 items,
-                true
-        );
+                page,
+                size,
+                results.getTotalElements(),
+                results.getTotalPages());
     }
 
-    private static ReconciliationItem item(String date, String description, String amount, MatchStatus status) {
-        return new ReconciliationItem(UUID.randomUUID(), LocalDate.parse(date), description, new BigDecimal(amount), status);
+    @Override
+    @Transactional(readOnly = true)
+    public String exportLatest(MatchStatus status) {
+        var latestRun = reconciliationRunRepository.findFirstByOrderByExecutedAtDescRunIdDesc();
+        StringBuilder csv = new StringBuilder("\uFEFFdate;description;amount;status;origin;differenceAmount;notes\r\n");
+        if (latestRun.isEmpty()) {
+            return csv.toString();
+        }
+
+        List<ReconciliationResult> results = reconciliationResultRepository.findAllForExport(latestRun.get().getRunId());
+        results.stream()
+                .filter(result -> status == null || result.getStatus() == status)
+                .map(DefaultReconciliationService::toItem)
+                .forEach(item -> csv.append(csvField(item.date() == null ? "" : item.date().toString())).append(';')
+                        .append(csvField(protectFormula(item.description()))).append(';')
+                        .append(item.amount() == null ? "" : item.amount().toPlainString()).append(';')
+                        .append(csvField(item.status().name())).append(';')
+                        .append(csvField(item.origin().name())).append(';')
+                        .append(item.differenceAmount() == null ? "" : item.differenceAmount().toPlainString()).append(';')
+                        .append(csvField(protectFormula(item.notes() == null ? "" : item.notes())))
+                        .append("\r\n"));
+        return csv.toString();
+    }
+
+    private static ReconciliationPrerequisiteException missingSourceException() {
+        return new ReconciliationPrerequisiteException(
+                "Envie o arquivo do ERP e o do banco antes de conciliar.");
+    }
+
+    private static void validatePage(int page, int size) {
+        if (page < 0) {
+            throw new IllegalArgumentException("O parâmetro page deve ser maior ou igual a zero.");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("O parâmetro size deve estar entre 1 e 100.");
+        }
+    }
+
+    private static ReconciliationSummary emptySummary(int page, int size) {
+        return new ReconciliationSummary(
+                null, BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2),
+                0, 0, 0, List.of(), page, size, 0, 0);
+    }
+
+    private static BigDecimal zeroIfNull(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO.setScale(2) : amount;
+    }
+
+    private static ReconciliationItem toItem(ReconciliationResult result) {
+        FinancialTransaction erp = result.getErpTransaction();
+        FinancialTransaction bank = result.getBankTransaction();
+        FinancialTransaction preferred = erp != null ? erp : bank;
+        TransactionOrigin origin = erp == null ? TransactionOrigin.BANK
+                : bank == null ? TransactionOrigin.ERP : TransactionOrigin.BOTH;
+        return new ReconciliationItem(
+                result.getId(),
+                preferred.getTransactionDate(),
+                preferred.getDescription(),
+                preferred.getAmount(),
+                result.getStatus(),
+                origin,
+                result.getDifferenceAmount(),
+                result.getNotes());
+    }
+
+    private static String protectFormula(String value) {
+        if (!value.isEmpty() && "=+-@".indexOf(value.charAt(0)) >= 0) {
+            return "'" + value;
+        }
+        return value;
+    }
+
+    private static String csvField(String value) {
+        if (value.indexOf(';') >= 0 || value.indexOf('"') >= 0
+                || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }
