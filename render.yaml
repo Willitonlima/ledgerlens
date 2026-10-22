@@ -1,0 +1,21 @@
+# Opcional: blueprint do backend no Render. Configure as variáveis de datasource
+# com os dados do PostgreSQL gerenciado escolhido; este arquivo não cria um banco.
+services:
+  - type: web
+    name: ledgerlens-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

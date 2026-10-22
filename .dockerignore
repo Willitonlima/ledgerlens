@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+.idea
+**/node_modules
+**/target
+**/dist
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+frontend
+docker-compose.yml
+README.md
