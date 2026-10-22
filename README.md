@@ -32,7 +32,7 @@ O frontend é uma SPA estática. Em produção, `VITE_API_URL` aponta para a ori
 
 ## Stack e estrutura
 
-- **Backend:** Java 21 conforme `backend/pom.xml`, Spring Boot 3.5.16, Maven, JPA, Flyway, PostgreSQL.
+- **Backend:** Java 21 conforme `backend/pom.xml`, Spring Boot 4.0.9 (Spring Framework 7.0.10), Maven, JPA, Flyway, PostgreSQL.
 - **Frontend:** React, Vite, Tailwind CSS, npm, Vitest e Testing Library.
 - **Testes backend:** JUnit/Spring Boot Test e Testcontainers; os testes de integração precisam de Docker.
 - **Fontes:** Newsreader e Public Sans empacotadas localmente, sem buscar fontes de terceiros em runtime.
@@ -86,10 +86,12 @@ Todas as rotas `/api/v1` exigem `X-Workspace-Id` com UUID.
 Na raiz do repositório:
 
 ```bash
+cp .env.example .env
+# Defina uma senha local em POSTGRES_PASSWORD e SPRING_DATASOURCE_PASSWORD no .env.
 docker compose up -d
 ```
 
-O Compose cria um PostgreSQL de desenvolvimento em `localhost:5432`. As credenciais fixas no `docker-compose.yml` são **somente locais**; não reutilize em produção.
+O Compose cria um PostgreSQL de desenvolvimento em `localhost:5432`. O arquivo `.env` é ignorado pelo Git; nunca reutilize a senha local em produção.
 
 ### Backend
 
@@ -97,6 +99,9 @@ Linux/macOS:
 
 ```bash
 cd backend
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/ledgerlens
+export SPRING_DATASOURCE_USERNAME=ledgerlens
+export SPRING_DATASOURCE_PASSWORD='<a mesma senha local definida no .env>'
 ./mvnw spring-boot:run
 ```
 
@@ -106,6 +111,9 @@ Windows PowerShell:
 Set-Location backend
 # Se o caminho do perfil do Windows tiver espaços, use um cache Maven sem espaços.
 $env:MAVEN_USER_HOME = 'C:\m2cache'
+$env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/ledgerlens'
+$env:SPRING_DATASOURCE_USERNAME = 'ledgerlens'
+$env:SPRING_DATASOURCE_PASSWORD = '<a mesma senha local definida no .env>'
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -140,6 +148,8 @@ A aplicação abre em `http://localhost:5173` e o proxy do Vite encaminha `/api`
 npm test
 npm run build
 ```
+
+Os CSVs de exemplo incluem correspondências, divergência e lançamentos ausentes, com mais de 20 resultados para permitir exercitar a paginação.
 
 ## Deploy
 
@@ -207,7 +217,7 @@ Antes de publicar, substitua `https://SEU-BACKEND.onrender.com` no CSP de `front
 - Vercel aplica CSP (com host de API a substituir), HSTS, `nosniff`, proteção contra framing, política de referrer e permissões restritas. CSP precisa ser revisada se forem adicionados scripts, fontes ou endpoints externos.
 - `.dockerignore` remove diretórios de build, dependências locais, VCS, env files e chaves do contexto Docker.
 - CI em `.github/workflows/verify.yml` testa/verifica backend com Java 21 e testa/builda frontend com Node 22; Dependabot acompanha Maven, npm e Actions.
-- O backend compila e executa com Java 21 em local, CI e contêiner. Spring Boot foi atualizado dentro da linha 3.5 para a versão 3.5.16; Tomcat 10.1.61, Jackson 2.21.7, PostgreSQL JDBC 42.7.12 e Log4j 2.25.5 foram selecionados por correções de segurança confirmadas no scan. Valide a compatibilidade do runtime e da plataforma antes do deploy.
+- O backend compila e executa com Java 21 em local, CI e contêiner. Spring Boot 4.0.9 gerencia Spring Framework 7.0.10, acima das versões corrigidas para CVE-2026-47884 e CVE-2026-47890; suas dependências e módulos seguem o BOM do Boot. Valide a compatibilidade do runtime e da plataforma antes do deploy.
 
 ## Limitações conhecidas
 

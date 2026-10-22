@@ -8,12 +8,22 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -162,12 +172,63 @@ class WorkspaceSecurityIntegrationTest extends AbstractIntegrationTest {
                 Integer.class, workspaceId)).isZero();
     }
 
+    @Test
+    void exampleCsvFlowSupportsFilteringPaginationExportAndWorkspaceCleanup() throws Exception {
+        String workspaceId = UUID.randomUUID().toString();
+        MockMultipartFile erp = csvFile(Files.readString(
+                Path.of("..", "frontend", "public", "samples", "erp.csv")));
+        MockMultipartFile bank = csvFile(Files.readString(
+                Path.of("..", "frontend", "public", "samples", "banco.csv")));
+
+        mockMvc.perform(upload(workspaceId, erp, "ERP"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.recordsImported").value(13));
+        mockMvc.perform(upload(workspaceId, bank, "BANK"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.recordsImported").value(13));
+        mockMvc.perform(post("/api/v1/reconciliations/execute").header("X-Workspace-Id", workspaceId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", workspaceId)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems", greaterThan(20)))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.items", hasSize(20)));
+        mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", workspaceId)
+                        .param("page", "1")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.items", hasSize(3)));
+        mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", workspaceId)
+                        .param("status", "MISSING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems", greaterThan(0)))
+                .andExpect(jsonPath("$.items[*].status", everyItem(is("MISSING"))));
+        mockMvc.perform(get("/api/v1/reconciliations/latest/export")
+                        .header("X-Workspace-Id", workspaceId))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Compra de software anual")));
+
+        mockMvc.perform(delete("/api/v1/workspace").header("X-Workspace-Id", workspaceId))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/reconciliations/latest").header("X-Workspace-Id", workspaceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executedAt").value(nullValue()))
+                .andExpect(jsonPath("$.totalItems").value(0));
+    }
+
     private static MockMultipartFile csvFile(String csv) {
         return new MockMultipartFile(
                 "file", "statement.csv", "text/csv", csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    private static MockHttpServletRequestBuilder upload(
+    private static MockMultipartHttpServletRequestBuilder upload(
             String workspaceId, MockMultipartFile file, String sourceType) {
         return multipart("/api/v1/batches/upload")
                 .file(file)

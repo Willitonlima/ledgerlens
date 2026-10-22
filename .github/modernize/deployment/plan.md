@@ -8,7 +8,7 @@ Preparar o LedgerLens para deploy do frontend estático na Vercel e do backend S
 
 - Monorepo com backend Java/Spring Boot/Maven em `backend/` e frontend React/Vite/npm em `frontend/`.
 - `backend/pom.xml` definia Java 25 e Spring Boot `3.5.0`; o pedido exige JRE 21. Alinhar POM, Docker e CI a Java 21, mantendo Spring Boot na linha 3.5 e verificando que o projeto compila para esse alvo.
-- Backend já lê `PORT`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` e `ALLOWED_ORIGINS` em produção, expõe apenas `/actuator/health`, e usa Flyway/PostgreSQL. O datasource local possui credenciais de desenvolvimento no YAML.
+- Backend lê `PORT`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` e `ALLOWED_ORIGINS` em produção, expõe apenas `/actuator/health` e usa Flyway/PostgreSQL. As credenciais locais são fornecidas por um `.env` ignorado pelo Git; o YAML não contém senha.
 - Frontend lê `VITE_API_URL`; no desenvolvimento Vite encaminha `/api` para `localhost:8080`. `frontend/package-lock.json` existe; testes são via Vitest.
 - Importação CSV aceita valores monetários não negativos; conciliação prioriza referência+valor, depois data+valor, depois candidatos por similaridade com tolerância configurável; o matcher usa diferença ERP menos banco. Armazenamento é isolado por UUID de workspace e a retenção padrão é 24 horas.
 
