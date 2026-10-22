@@ -20,6 +20,9 @@ public class ImportBatch {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "workspace_id", nullable = false)
+    private UUID workspaceId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "source_type", nullable = false, length = 10)
     private SourceType sourceType;

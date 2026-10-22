@@ -17,6 +17,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class BatchUploadIntegrationTest extends AbstractIntegrationTest {
 
+    private static final String WORKSPACE_ID = "5dc1d346-075c-4b84-aadb-e122c01a572d";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -90,11 +92,12 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(upload(csvFile(erpCsv), "ERP")).andExpect(status().isCreated());
         mockMvc.perform(upload(csvFile(bankCsv), "BANK")).andExpect(status().isCreated());
-        mockMvc.perform(post("/api/v1/reconciliations/execute"))
+        mockMvc.perform(post("/api/v1/reconciliations/execute").header("X-Workspace-Id", WORKSPACE_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.runId").exists());
 
-        mockMvc.perform(get("/api/v1/reconciliations/latest").param("page", "0").param("size", "1"))
+        mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", WORKSPACE_ID).param("page", "0").param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalErpAmount").value(30.00))
                 .andExpect(jsonPath("$.totalBankAmount").value(40.00))
@@ -105,12 +108,14 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.items[0].origin").exists());
 
         mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", WORKSPACE_ID)
                         .param("status", "MISSING")
                         .param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalItems").value(2));
 
-        mockMvc.perform(get("/api/v1/reconciliations/latest/export"))
+        mockMvc.perform(get("/api/v1/reconciliations/latest/export")
+                        .header("X-Workspace-Id", WORKSPACE_ID))
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
                         .contentTypeCompatibleWith("text/csv"))
@@ -122,7 +127,7 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void requiresBothSourceBatchesBeforeExecuting() throws Exception {
-        mockMvc.perform(post("/api/v1/reconciliations/execute"))
+        mockMvc.perform(post("/api/v1/reconciliations/execute").header("X-Workspace-Id", WORKSPACE_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail")
                         .value("Envie o arquivo do ERP e o do banco antes de conciliar."));
@@ -130,7 +135,7 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void returnsEmptyPageBeforeAnyReconciliationRunAndRejectsInvalidPageSize() throws Exception {
-        mockMvc.perform(get("/api/v1/reconciliations/latest"))
+        mockMvc.perform(get("/api/v1/reconciliations/latest").header("X-Workspace-Id", WORKSPACE_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.executedAt").doesNotExist())
                 .andExpect(jsonPath("$.totalErpAmount").value(0))
@@ -139,7 +144,8 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20));
 
-        mockMvc.perform(get("/api/v1/reconciliations/latest").param("size", "101"))
+        mockMvc.perform(get("/api/v1/reconciliations/latest")
+                        .header("X-Workspace-Id", WORKSPACE_ID).param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("O parâmetro size deve estar entre 1 e 100."));
     }
@@ -151,6 +157,7 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
     private static MockHttpServletRequestBuilder upload(MockMultipartFile file, String sourceType) {
         return multipart("/api/v1/batches/upload")
                 .file(file)
-                .param("sourceType", sourceType);
+                .param("sourceType", sourceType)
+                .header("X-Workspace-Id", WORKSPACE_ID);
     }
 }

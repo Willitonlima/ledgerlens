@@ -4,6 +4,7 @@ import com.ledgerlens.application.dto.ExecutionReceipt;
 import com.ledgerlens.application.dto.ReconciliationItem;
 import com.ledgerlens.application.dto.ReconciliationSummary;
 import com.ledgerlens.config.ReconciliationProperties;
+import com.ledgerlens.config.WorkspaceContext;
 import com.ledgerlens.domain.FinancialTransaction;
 import com.ledgerlens.domain.ImportBatch;
 import com.ledgerlens.domain.MatchStatus;
@@ -52,21 +53,27 @@ public class DefaultReconciliationService implements ReconciliationService {
     @Override
     @Transactional
     public ExecutionReceipt execute() {
-        ImportBatch erpBatch = importBatchRepository.findFirstBySourceTypeOrderByCreatedAtDescIdDesc(SourceType.ERP)
+        UUID workspaceId = WorkspaceContext.requireWorkspaceId();
+        ImportBatch erpBatch = importBatchRepository.findFirstByWorkspaceIdAndSourceTypeOrderByCreatedAtDescIdDesc(
+                        workspaceId, SourceType.ERP)
                 .orElseThrow(DefaultReconciliationService::missingSourceException);
-        ImportBatch bankBatch = importBatchRepository.findFirstBySourceTypeOrderByCreatedAtDescIdDesc(SourceType.BANK)
+        ImportBatch bankBatch = importBatchRepository.findFirstByWorkspaceIdAndSourceTypeOrderByCreatedAtDescIdDesc(
+                        workspaceId, SourceType.BANK)
                 .orElseThrow(DefaultReconciliationService::missingSourceException);
 
         Instant executedAt = Instant.now();
         UUID runId = UUID.randomUUID();
-        reconciliationRunRepository.save(new ReconciliationRun(runId, executedAt));
+        reconciliationRunRepository.save(new ReconciliationRun(runId, executedAt, workspaceId));
 
         List<FinancialTransaction> erpTransactions =
-                financialTransactionRepository.findByBatchIdOrderByCreatedAtAscIdAsc(erpBatch.getId());
+                financialTransactionRepository.findByBatchIdAndWorkspaceIdOrderByCreatedAtAscIdAsc(
+                        erpBatch.getId(), workspaceId);
         List<FinancialTransaction> bankTransactions =
-                financialTransactionRepository.findByBatchIdOrderByCreatedAtAscIdAsc(bankBatch.getId());
+                financialTransactionRepository.findByBatchIdAndWorkspaceIdOrderByCreatedAtAscIdAsc(
+                        bankBatch.getId(), workspaceId);
         List<ReconciliationResult> results =
                 matcher.reconcile(erpTransactions, bankTransactions, runId, executedAt);
+        results.forEach(result -> result.setWorkspaceId(workspaceId));
         reconciliationResultRepository.saveAll(results);
         return new ExecutionReceipt(runId, executedAt);
     }
@@ -75,15 +82,18 @@ public class DefaultReconciliationService implements ReconciliationService {
     @Transactional(readOnly = true)
     public ReconciliationSummary getLatest(MatchStatus status, int page, int size) {
         validatePage(page, size);
-        var latestRun = reconciliationRunRepository.findFirstByOrderByExecutedAtDescRunIdDesc();
+        UUID workspaceId = WorkspaceContext.requireWorkspaceId();
+        var latestRun = reconciliationRunRepository.findFirstByWorkspaceIdOrderByExecutedAtDescRunIdDesc(
+                workspaceId);
         if (latestRun.isEmpty()) {
             return emptySummary(page, size);
         }
 
         UUID runId = latestRun.get().getRunId();
-        ReconciliationResultRepository.ReconciliationStats stats = reconciliationResultRepository.summarize(runId);
+        ReconciliationResultRepository.ReconciliationStats stats =
+                reconciliationResultRepository.summarize(runId, workspaceId);
         Page<ReconciliationResult> results = reconciliationResultRepository.findPage(
-                runId, status, PageRequest.of(page, size));
+                runId, workspaceId, status, PageRequest.of(page, size));
 
         List<ReconciliationItem> items = results.getContent().stream()
                 .map(DefaultReconciliationService::toItem)
@@ -105,13 +115,16 @@ public class DefaultReconciliationService implements ReconciliationService {
     @Override
     @Transactional(readOnly = true)
     public String exportLatest(MatchStatus status) {
-        var latestRun = reconciliationRunRepository.findFirstByOrderByExecutedAtDescRunIdDesc();
+        UUID workspaceId = WorkspaceContext.requireWorkspaceId();
+        var latestRun = reconciliationRunRepository.findFirstByWorkspaceIdOrderByExecutedAtDescRunIdDesc(
+                workspaceId);
         StringBuilder csv = new StringBuilder("\uFEFFdate;description;amount;status;origin;differenceAmount;notes\r\n");
         if (latestRun.isEmpty()) {
             return csv.toString();
         }
 
-        List<ReconciliationResult> results = reconciliationResultRepository.findAllForExport(latestRun.get().getRunId());
+        List<ReconciliationResult> results = reconciliationResultRepository.findAllForExport(
+                latestRun.get().getRunId(), workspaceId);
         results.stream()
                 .filter(result -> status == null || result.getStatus() == status)
                 .map(DefaultReconciliationService::toItem)

@@ -19,12 +19,16 @@ public class ReconciliationRun {
     @Column(name = "executed_at", nullable = false)
     private Instant executedAt;
 
+    @Column(name = "workspace_id", nullable = false)
+    private UUID workspaceId;
+
     protected ReconciliationRun() {
     }
 
-    public ReconciliationRun(UUID runId, Instant executedAt) {
+    public ReconciliationRun(UUID runId, Instant executedAt, UUID workspaceId) {
         this.runId = runId;
         this.executedAt = executedAt;
+        this.workspaceId = workspaceId;
     }
 
     public UUID getRunId() {
@@ -33,5 +37,9 @@ public class ReconciliationRun {
 
     public Instant getExecutedAt() {
         return executedAt;
+    }
+
+    public UUID getWorkspaceId() {
+        return workspaceId;
     }
 }

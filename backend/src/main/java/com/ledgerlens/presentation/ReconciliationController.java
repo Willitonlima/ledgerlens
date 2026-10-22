@@ -2,6 +2,7 @@ package com.ledgerlens.presentation;
 
 import com.ledgerlens.application.BatchImportService;
 import com.ledgerlens.application.ReconciliationService;
+import com.ledgerlens.application.WorkspaceDataService;
 import com.ledgerlens.application.dto.BatchUploadReceipt;
 import com.ledgerlens.application.dto.ExecutionReceipt;
 import com.ledgerlens.application.dto.ReconciliationSummary;
@@ -20,11 +21,14 @@ public class ReconciliationController {
 
     private final BatchImportService batchImportService;
     private final ReconciliationService reconciliationService;
+    private final WorkspaceDataService workspaceDataService;
 
     public ReconciliationController(BatchImportService batchImportService,
-                                    ReconciliationService reconciliationService) {
+                                    ReconciliationService reconciliationService,
+                                    WorkspaceDataService workspaceDataService) {
         this.batchImportService = batchImportService;
         this.reconciliationService = reconciliationService;
+        this.workspaceDataService = workspaceDataService;
     }
 
     /** Recebe um CSV. Exemplo: {@code POST /api/v1/batches/upload?sourceType=ERP} (multipart, campo "file"). */
@@ -57,5 +61,11 @@ public class ReconciliationController {
                 .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reconciliation.csv\"")
                 .body(reconciliationService.exportLatest(status));
+    }
+
+    @DeleteMapping("/workspace")
+    public ResponseEntity<Void> deleteWorkspace() {
+        workspaceDataService.deleteCurrentWorkspace();
+        return ResponseEntity.noContent().build();
     }
 }

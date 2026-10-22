@@ -1,6 +1,7 @@
 package com.ledgerlens.application;
 
 import com.ledgerlens.application.dto.BatchUploadReceipt;
+import com.ledgerlens.config.WorkspaceContext;
 import com.ledgerlens.domain.BatchStatus;
 import com.ledgerlens.domain.FinancialTransaction;
 import com.ledgerlens.domain.ImportBatch;
@@ -44,15 +45,18 @@ public class DefaultBatchImportService implements BatchImportService {
     @Override
     @Transactional
     public BatchUploadReceipt receive(MultipartFile file, SourceType sourceType) {
+        var workspaceId = WorkspaceContext.requireWorkspaceId();
         validateFile(file);
         String fileHash = calculateHash(file);
-        var existingBatch = importBatchRepository.findBySourceTypeAndFileHash(sourceType, fileHash);
+        var existingBatch = importBatchRepository.findByWorkspaceIdAndSourceTypeAndFileHash(
+                workspaceId, sourceType, fileHash);
         if (existingBatch.isPresent()) {
             ImportBatch batch = existingBatch.get();
             return receipt(batch, true, "Este arquivo já havia sido importado.");
         }
 
         ImportBatch batch = new ImportBatch();
+        batch.setWorkspaceId(workspaceId);
         batch.setSourceType(sourceType);
         batch.setFileName(file.getOriginalFilename());
         batch.setFileHash(fileHash);

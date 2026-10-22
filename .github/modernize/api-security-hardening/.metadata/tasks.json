@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Tasks for the LedgerLens API security and workspace isolation implementation.",
+  "tasks": [
+    {
+      "type": "setupBaseline",
+      "id": "001-setup-backend-test-baseline",
+      "description": "Capture the current backend behavior needed to verify the scoped security changes.",
+      "requirements": "Record the existing backend API behavior relevant to workspace handling, uploads, errors, and scheduled data operations before implementation. Keep the baseline limited to behavior affected by this requested work.",
+      "snapshotFolder": "backend"
+    },
+    {
+      "type": "security",
+      "id": "002-secure-api-and-enforce-workspace-isolation",
+      "description": "Harden the API and isolate all persisted data by workspace.",
+      "requirements": "Enforce a required, valid workspace context on applicable API requests and scope every database query and relevant schema migration/index/constraint to that workspace. Add DELETE /api/v1/workspace and configurable scheduled cleanup with a 24-hour default retention. Add IP- and workspace-based general and upload rate limits, return HTTP 429 with Retry-After, and handle proxy headers using an explicit trusted-proxy configuration. Load CORS origins from ALLOWED_ORIGINS and reject wildcard origins in production. Add security headers. Ensure ApiExceptionHandler returns Portuguese ProblemDetail responses without exposing internal exception details; log unexpected details only on the server. Prevent logs from containing request contents, descriptive text, or values. Restrict actuator exposure to health. Add application-prod.yml configuration for datasource, allowed origins, and PORT. Follow existing repository patterns, integrate changes with PostgreSQL/Flyway, and do not modify .copilot-instructions.md or unrelated code.",
+      "dependencies": [
+        "001-setup-backend-test-baseline"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "integrationTest",
+      "id": "003-integrationTest",
+      "description": "Build and run integration tests for workspace isolation and API security behavior.",
+      "requirements": "Add and run integration tests for absent and invalid workspace headers, tenant isolation across workspaces, general and upload rate limits (including HTTP 429 and Retry-After), incorrect upload content type, and scheduled cleanup using configurable retention. Verify the persistence schema/migrations support workspace scoping and that the tests use the repository's existing database integration-test patterns.",
+      "dependencies": [
+        "001-setup-backend-test-baseline",
+        "002-secure-api-and-enforce-workspace-isolation"
+      ]
+    }
+  ],
+  "metadata": {
+    "planName": "api-security-hardening",
+    "projectName": "LedgerLens",
+    "language": "java",
+    "createdAt": "2026-10-22T10:48:01-03:00",
+    "version": "1.0"
+  }
+}

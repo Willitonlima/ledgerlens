@@ -24,8 +24,20 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 ledgerlens:
+  retention-hours: 24
+  cleanup-interval-ms: 3600000
   reconciliation:
     date-tolerance-days: 3
     amount-tolerance: 0.01

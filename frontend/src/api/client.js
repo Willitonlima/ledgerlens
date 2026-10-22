@@ -1,10 +1,26 @@
 // Cliente HTTP da API do LedgerLens. Em dev, "/api" é encaminhado pelo proxy do Vite.
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
+const WORKSPACE_STORAGE_KEY = "ledgerlens.workspaceId";
 
-async function request(path, options) {
+function workspaceId() {
+  let id = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+  if (!id) {
+    id = window.crypto.randomUUID();
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, id);
+  }
+  return id;
+}
+
+async function request(path, options = {}) {
   let response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, options);
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        "X-Workspace-Id": workspaceId(),
+      },
+    });
   } catch {
     throw new Error("Não foi possível conectar ao servidor. Verifique se o backend está rodando em localhost:8080.");
   }

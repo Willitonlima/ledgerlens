@@ -24,6 +24,9 @@ public class ReconciliationResult {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "workspace_id", nullable = false)
+    private UUID workspaceId;
+
     @Column(name = "run_id", nullable = false)
     private UUID runId;
 

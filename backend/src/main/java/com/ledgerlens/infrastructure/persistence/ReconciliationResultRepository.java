@@ -4,16 +4,37 @@ import com.ledgerlens.domain.ReconciliationResult;
 import com.ledgerlens.domain.MatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 public interface ReconciliationResultRepository extends JpaRepository<ReconciliationResult, UUID> {
+
+    @Modifying
+    @Query("DELETE FROM ReconciliationResult result WHERE result.workspaceId = :workspaceId")
+    int deleteAllByWorkspaceId(@Param("workspaceId") UUID workspaceId);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM reconciliation_result result
+            WHERE result.executed_at < :cutoff
+               OR EXISTS (
+                   SELECT 1
+                   FROM financial_transaction ft
+                   JOIN import_batch batch ON batch.id = ft.batch_id
+                   WHERE batch.created_at < :cutoff
+                     AND (result.erp_transaction_id = ft.id
+                          OR result.bank_transaction_id = ft.id)
+               )
+            """, nativeQuery = true)
+    int deleteExpired(@Param("cutoff") Instant cutoff);
 
     @Query("""
             SELECT COALESCE(SUM(erp.amount), 0) AS totalErpAmount,
@@ -24,26 +45,27 @@ public interface ReconciliationResultRepository extends JpaRepository<Reconcilia
             FROM ReconciliationResult r
             LEFT JOIN r.erpTransaction erp
             LEFT JOIN r.bankTransaction bank
-            WHERE r.runId = :runId
+            WHERE r.runId = :runId AND r.workspaceId = :workspaceId
             """)
-    ReconciliationStats summarize(@Param("runId") UUID runId);
+    ReconciliationStats summarize(@Param("runId") UUID runId, @Param("workspaceId") UUID workspaceId);
 
     @EntityGraph(attributePaths = {"erpTransaction", "bankTransaction"})
     @Query(value = """
             SELECT r FROM ReconciliationResult r
             LEFT JOIN r.erpTransaction erp
             LEFT JOIN r.bankTransaction bank
-            WHERE r.runId = :runId
+            WHERE r.runId = :runId AND r.workspaceId = :workspaceId
               AND (:status IS NULL OR r.status = :status)
             ORDER BY COALESCE(erp.transactionDate, bank.transactionDate), r.id
             """,
             countQuery = """
                     SELECT COUNT(r) FROM ReconciliationResult r
-                    WHERE r.runId = :runId
+                    WHERE r.runId = :runId AND r.workspaceId = :workspaceId
                       AND (:status IS NULL OR r.status = :status)
                     """)
     Page<ReconciliationResult> findPage(
             @Param("runId") UUID runId,
+            @Param("workspaceId") UUID workspaceId,
             @Param("status") MatchStatus status,
             Pageable pageable);
 
@@ -52,10 +74,11 @@ public interface ReconciliationResultRepository extends JpaRepository<Reconcilia
             SELECT r FROM ReconciliationResult r
             LEFT JOIN r.erpTransaction erp
             LEFT JOIN r.bankTransaction bank
-            WHERE r.runId = :runId
+            WHERE r.runId = :runId AND r.workspaceId = :workspaceId
             ORDER BY COALESCE(erp.transactionDate, bank.transactionDate), r.id
             """)
-    List<ReconciliationResult> findAllForExport(@Param("runId") UUID runId);
+    List<ReconciliationResult> findAllForExport(
+            @Param("runId") UUID runId, @Param("workspaceId") UUID workspaceId);
 
     interface ReconciliationStats {
         BigDecimal getTotalErpAmount();

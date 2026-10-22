@@ -29,5 +29,13 @@ class SchemaSmokeTest extends AbstractIntegrationTest {
                   AND column_name = 'file_hash'
                 """, Integer.class);
         assertThat(hashColumn).isEqualTo(1);
+
+        Integer workspaceColumns = jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND column_name = 'workspace_id'
+                  AND table_name IN ('import_batch', 'reconciliation_run', 'reconciliation_result')
+                """, Integer.class);
+        assertThat(workspaceColumns).isEqualTo(3);
     }
 }
