@@ -1,11 +1,9 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
-/**
- * Área de envio de CSV.
- * state: { status: "idle" | "uploading" | "done" | "error", fileName?, message? }
- */
 export default function Dropzone({ title, description, state, onFile }) {
   const inputRef = useRef(null);
+  const inputId = useId();
+  const descriptionId = useId();
   const [dragging, setDragging] = useState(false);
   const busy = state.status === "uploading";
 
@@ -15,60 +13,74 @@ export default function Dropzone({ title, description, state, onFile }) {
   }
 
   return (
-    <div>
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="mb-2 text-xs text-muted">{description}</p>
-
+    <div className="upload-card">
+      <label className="upload-title" htmlFor={inputId}>{title}</label>
+      <p className="upload-description" id={descriptionId}>{description}</p>
       <button
-        type="button"
+        aria-describedby={descriptionId}
+        aria-label={`${title}: escolher arquivo CSV`}
+        aria-busy={busy}
+        className={`dropzone${dragging ? " is-dragging" : ""}`}
         disabled={busy}
         onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
+        onDragOver={(event) => {
+          event.preventDefault();
           setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
+        onDrop={(event) => {
+          event.preventDefault();
           setDragging(false);
-          handleFiles(e.dataTransfer.files);
+          handleFiles(event.dataTransfer.files);
         }}
-        className={`flex min-h-28 w-full cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-5 text-center transition-colors disabled:cursor-wait ${
-          dragging ? "border-accent bg-accent/5" : "border-rule bg-surface hover:border-accent"
-        }`}
+        type="button"
       >
-        {state.status === "uploading" && <span className="text-sm text-muted">Enviando {state.fileName}…</span>}
+        {busy && <span className="dropzone-state">Enviando {state.fileName}…</span>}
         {state.status === "done" && (
           <>
-            <span className="text-sm font-medium text-ok">{state.fileName}</span>
-            <span className="mt-1 text-xs text-muted">{state.message} Clique para trocar o arquivo.</span>
+            <span className="dropzone-state success">{state.fileName}</span>
+            <span className="dropzone-hint">{state.recordsImported} lançamentos importados. Clique para trocar.</span>
           </>
         )}
         {state.status === "error" && (
           <>
-            <span className="text-sm font-medium text-bad">Falha ao enviar {state.fileName}</span>
-            <span className="mt-1 text-xs text-muted">{state.message}</span>
+            <span className="dropzone-state error">Não foi possível enviar {state.fileName}</span>
+            <span className="dropzone-hint">{state.message}</span>
           </>
         )}
         {state.status === "idle" && (
           <>
-            <span className="text-sm font-medium">Arraste o CSV aqui</span>
-            <span className="mt-1 text-xs text-muted">ou clique para escolher um arquivo</span>
+            <span className="dropzone-state">Arraste o CSV até aqui</span>
+            <span className="dropzone-hint">ou escolha um arquivo no seu dispositivo</span>
           </>
         )}
       </button>
-
       <input
-        ref={inputRef}
-        type="file"
         accept=".csv,text/csv"
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(e) => {
-          handleFiles(e.target.files);
-          e.target.value = "";
+        className="visually-hidden"
+        id={inputId}
+        onChange={(event) => {
+          handleFiles(event.target.files);
+          event.target.value = "";
         }}
+        ref={inputRef}
+        tabIndex={-1}
+        type="file"
       />
+      {state.status === "error" && state.errors?.length > 0 && (
+        <ul className="upload-errors" aria-label="Erros encontrados no arquivo">
+          {state.errors.map((item, index) => (
+            <li key={`${item.line}-${item.field}-${index}`}>
+              Linha {item.line}, {item.field}: {item.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      {state.status === "done" && state.fileName && (
+        <p className="uploaded-file" aria-live="polite">
+          Arquivo enviado: <strong>{state.fileName}</strong> · {state.recordsImported} lançamentos
+        </p>
+      )}
     </div>
   );
 }

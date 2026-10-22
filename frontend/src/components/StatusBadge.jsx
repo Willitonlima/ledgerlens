@@ -6,5 +6,5 @@ const STATUS = {
 
 export default function StatusBadge({ status }) {
   const { label, classes } = STATUS[status] ?? { label: status, classes: "bg-rule text-muted" };
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}`}>{label}</span>;
+  return <span className={`status-badge ${classes}`}>{label}</span>;
 }

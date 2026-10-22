@@ -1,55 +1,72 @@
-import { formatCurrency, formatDate } from "../format.js";
+import { formatCurrency, formatDate } from "../utils/format.js";
 import StatusBadge from "./StatusBadge.jsx";
+
+const amountOrDash = (value) => value == null ? "—" : formatCurrency(value);
+const originLabels = { ERP: "ERP", BANK: "Banco", BOTH: "ERP e banco" };
+const formatOrigin = (origin) => originLabels[origin] ?? origin ?? "—";
 
 export default function ResultsTable({ items, loading }) {
   if (loading) {
     return (
-      <div className="space-y-px">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 animate-pulse bg-rule/60" />
-        ))}
+      <div aria-label="Carregando resultados" aria-live="polite" className="result-skeletons">
+        {Array.from({ length: 5 }, (_, index) => <div className="skeleton-row" key={index} />)}
       </div>
     );
   }
 
   if (!items?.length) {
     return (
-      <p className="px-4 py-10 text-center text-sm text-muted">
-        Nenhum resultado ainda. Envie os dois arquivos CSV e execute a conciliação.
-      </p>
+      <div className="empty-state">
+        <span aria-hidden="true" className="empty-icon">↗</span>
+        <h3>Nenhum resultado nesta página</h3>
+        <p>Envie os arquivos do ERP e do banco. Depois, concilie para revisar os lançamentos.</p>
+      </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[48rem] text-left text-sm">
-        <thead className="border-b border-rule text-muted">
-          <tr>
-            <th className="px-4 py-3 font-medium">Data</th>
-            <th className="px-4 py-3 font-medium">Descrição</th>
-            <th className="px-4 py-3 text-right font-medium">Valor</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Origem</th>
-            <th className="px-4 py-3 font-medium">Observação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-b border-rule/70 last:border-0">
-              <td className="tabular whitespace-nowrap px-4 py-3">{formatDate(item.date)}</td>
-              <td className="px-4 py-3">{item.description}</td>
-              <td className={`tabular whitespace-nowrap px-4 py-3 text-right ${item.amount < 0 ? "text-bad" : ""}`}>
-                {formatCurrency(item.amount)}
-              </td>
-              <td className="px-4 py-3">
-                <StatusBadge status={item.status} />
-              </td>
-              <td className="px-4 py-3">{item.origin}</td>
-              <td className="px-4 py-3 text-muted">{item.notes}</td>
+    <div className="results-view">
+      <div className="desktop-results">
+        <table className="results-table">
+          <thead>
+            <tr>
+              {["Data", "Descrição", "Valor", "Origem", "Status", "Diferença", "Observação"].map((label) => (
+                <th key={label} scope="col">{label}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="tabular">{formatDate(item.date) || "—"}</td>
+                <td className="result-description">{item.description || "—"}</td>
+                <td className="tabular">{amountOrDash(item.amount)}</td>
+                <td>{formatOrigin(item.origin)}</td>
+                <td><StatusBadge status={item.status} /></td>
+                <td className="tabular">{amountOrDash(item.differenceAmount)}</td>
+                <td className="result-notes">{item.notes || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul aria-label="Resultados da conciliação" className="mobile-results">
+        {items.map((item) => (
+          <li className="result-card" key={item.id}>
+            <div className="result-card-heading">
+              <span className="tabular">{formatDate(item.date) || "—"}</span>
+              <StatusBadge status={item.status} />
+            </div>
+            <h3>{item.description || "—"}</h3>
+            <dl>
+              <div><dt>Valor</dt><dd className="tabular">{amountOrDash(item.amount)}</dd></div>
+              <div><dt>Origem</dt><dd>{formatOrigin(item.origin)}</dd></div>
+              <div><dt>Diferença</dt><dd className="tabular">{amountOrDash(item.differenceAmount)}</dd></div>
+              <div><dt>Observação</dt><dd>{item.notes || "—"}</dd></div>
+            </dl>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -10,5 +10,10 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:8080",
     },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.js",
+    restoreMocks: true,
   },
 });

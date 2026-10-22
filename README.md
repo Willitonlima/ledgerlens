@@ -21,6 +21,10 @@ npm run dev
 ```
 
 Testes do backend (exigem Docker, usam Testcontainers): `./mvnw test`
+Testes do frontend: `cd frontend && npm test`
+
+O frontend mantém Newsreader e Public Sans localmente via `@fontsource`, evitando chamadas
+a serviços externos de fontes. Vitest e Testing Library validam os componentes e o fluxo de erro.
 
 ## Estrutura
 
@@ -31,7 +35,11 @@ backend/src/main/java/com/ledgerlens
 ├── infrastructure  repositórios Spring Data
 ├── presentation    controller REST e tratamento de erros
 └── config          CORS
-frontend/src        App, componentes, cliente da API
+frontend/src
+├── api              cliente HTTP e identificação do workspace
+├── components       envio, métricas e resultados
+├── hooks            hooks de interface
+└── utils            formatação e dados de exemplo
 ```
 
 ## Endpoints
