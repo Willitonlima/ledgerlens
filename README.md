@@ -32,7 +32,7 @@ O frontend é uma SPA estática. Em produção, `VITE_API_URL` aponta para a ori
 
 ## Stack e estrutura
 
-- **Backend:** Java 25 conforme `backend/pom.xml`, Spring Boot 3.5.16, Maven, JPA, Flyway, PostgreSQL.
+- **Backend:** Java 21 conforme `backend/pom.xml`, Spring Boot 3.5.16, Maven, JPA, Flyway, PostgreSQL.
 - **Frontend:** React, Vite, Tailwind CSS, npm, Vitest e Testing Library.
 - **Testes backend:** JUnit/Spring Boot Test e Testcontainers; os testes de integração precisam de Docker.
 - **Fontes:** Newsreader e Public Sans empacotadas localmente, sem buscar fontes de terceiros em runtime.
@@ -78,7 +78,7 @@ Todas as rotas `/api/v1` exigem `X-Workspace-Id` com UUID.
 
 ### Pré-requisitos
 
-- Java/JDK **25** (mesma versão declarada no POM), Docker Desktop e Node.js 22+ com npm.
+- Java/JDK **21** (mesma versão declarada no POM), Docker Desktop e Node.js 22+ com npm.
 - O Maven Wrapper (`mvnw`/`mvnw.cmd`) baixa a distribuição Maven especificada pelo projeto.
 
 ### PostgreSQL
@@ -104,10 +104,13 @@ Windows PowerShell:
 
 ```powershell
 Set-Location backend
+# Se o caminho do perfil do Windows tiver espaços, use um cache Maven sem espaços.
+$env:MAVEN_USER_HOME = 'C:\m2cache'
 .\mvnw.cmd spring-boot:run
 ```
 
-O Flyway cria/atualiza o schema. Testes:
+O Flyway cria/atualiza o schema. Se criar `C:\m2cache`, use o mesmo `MAVEN_USER_HOME`
+nos próximos comandos do wrapper. Testes:
 
 ```bash
 # Linux/macOS
@@ -115,6 +118,7 @@ cd backend && ./mvnw test
 
 # Windows PowerShell (a partir da raiz)
 Set-Location backend
+$env:MAVEN_USER_HOME = 'C:\m2cache'
 .\mvnw.cmd test
 ```
 
@@ -145,7 +149,7 @@ Arquitetura recomendada: **frontend Vercel + backend contêiner + PostgreSQL ger
 
 Crie primeiro um PostgreSQL gerenciado no provedor escolhido. Configure backup, TLS/SSL, região compatível, política de retenção e credenciais próprias; use a URL JDBC e os parâmetros TLS recomendados pelo provedor. Não publique credenciais no Git, em imagens Docker, no frontend ou em logs.
 
-O Dockerfile está em `backend/Dockerfile` e usa build multi-stage, Maven Wrapper, Java 25, JRE enxuto, usuário não-root, healthcheck e opções de memória que respeitam o limite de memória do contêiner. Defina também um limite de memória no provedor (ou, em teste local, `docker run --memory=512m ...`); `MaxRAMPercentage=75` reserva margem para memória nativa. O contêiner usa o perfil Spring `prod`.
+O Dockerfile está em `backend/Dockerfile` e usa build multi-stage, Maven Wrapper, Java 21, JRE enxuto, usuário não-root, healthcheck e opções de memória que respeitam o limite de memória do contêiner. Defina também um limite de memória no provedor (ou, em teste local, `docker run --memory=512m ...`); `MaxRAMPercentage=75` reserva margem para memória nativa. O contêiner usa o perfil Spring `prod`.
 
 Variáveis obrigatórias do backend:
 
@@ -162,13 +166,21 @@ Variáveis obrigatórias do backend:
 
 **Alternativas:** Railway pode executar o serviço Docker e disponibilizar PostgreSQL gerenciado; configure as mesmas variáveis e a URL JDBC (não use a URL interna Railway sem adaptá-la ao formato JDBC). No Fly.io, publique a imagem com `fly deploy` e use PostgreSQL gerenciado externo ou um serviço Postgres Fly; configure secrets com `fly secrets set` e conectividade/TLS apropriados. Recursos, custos, nomes de variáveis e disponibilidade variam por plano/região; confirme nos documentos do provedor antes do deploy.
 
+### Ordem do primeiro deploy
+
+1. Crie um PostgreSQL gerenciado e anote a URL JDBC, usuário e senha.
+2. Publique o backend no Render (ou alternativa) e configure as variáveis do banco de dados.
+3. Copie a URL pública do backend para `VITE_API_URL` nas variáveis de build da Vercel e substitua o host placeholder no `connect-src` do CSP em `frontend/vercel.json`.
+4. Publique o frontend na Vercel com diretório raiz `frontend`.
+5. Atualize `ALLOWED_ORIGINS` no backend para a URL pública final da Vercel e redeploy o backend.
+
 ### 2. Frontend na Vercel
 
 Importe o repositório na Vercel e defina **Root Directory** como `frontend`. `frontend/vercel.json` configura `npm ci`, `npm run build`, saída `dist`, fallback de rotas SPA e cabeçalhos de segurança. A Vercel serve arquivos existentes (incluindo `/assets`) antes de aplicar o rewrite de fallback.
 
 Defina `VITE_API_URL` no projeto Vercel **antes do build** como a origem HTTPS do backend, sem `/api` no final (por exemplo, `https://SEU-BACKEND.onrender.com`). A variável é incorporada ao JavaScript público: nunca coloque segredos nela.
 
-Antes de publicar, substitua `https://REPLACE-WITH-BACKEND-HOST.example.com` no CSP de `frontend/vercel.json` pelo host real do backend, exatamente compatível com `VITE_API_URL`. A CSP é intencionalmente um placeholder e pode bloquear chamadas à API até essa substituição. Revise também `ALLOWED_ORIGINS` no backend com a URL real do frontend. HSTS deve ser usado apenas para domínio servido exclusivamente por HTTPS.
+Antes de publicar, substitua `https://SEU-BACKEND.onrender.com` no CSP de `frontend/vercel.json` pelo host real do backend, exatamente compatível com `VITE_API_URL`. A CSP é intencionalmente um placeholder e pode bloquear chamadas à API até essa substituição. Revise também `ALLOWED_ORIGINS` no backend com a URL real do frontend. HSTS deve ser usado apenas para domínio servido exclusivamente por HTTPS.
 
 ### Variáveis de ambiente
 
@@ -185,12 +197,17 @@ Antes de publicar, substitua `https://REPLACE-WITH-BACKEND-HOST.example.com` no 
 
 ## Segurança e decisões técnicas
 
+- O matching usa índices `HashMap` para procurar chaves exatas por referência e data/valor, mantendo o caminho comum linear em relação aos lançamentos (`O(n)`); a busca por tolerância usa índices ordenados (`TreeMap`).
+- Valores monetários são representados por `BigDecimal`, evitando erros de ponto flutuante.
+- A importação é transacional: lote e lançamentos persistem juntos ou sofrem rollback juntos.
+- O hash SHA-256 do arquivo junto à origem torna reenvios idempotentes dentro do workspace, sem duplicar importações.
+- `workspace_id` particiona consultas e exclusões por espaço de trabalho; o UUID do navegador não autentica o visitante.
 - `backend/Dockerfile` separa build/runtime, executa como UID não-root e limita heap pela memória reconhecida pelo cgroup; configure o limite real de memória na plataforma.
 - Actuator expõe somente health, sem detalhes; healthcheck Docker/Render consulta `/actuator/health`.
 - Vercel aplica CSP (com host de API a substituir), HSTS, `nosniff`, proteção contra framing, política de referrer e permissões restritas. CSP precisa ser revisada se forem adicionados scripts, fontes ou endpoints externos.
 - `.dockerignore` remove diretórios de build, dependências locais, VCS, env files e chaves do contexto Docker.
-- CI em `.github/workflows/verify.yml` testa/verifica backend com Java 25 e testa/builda frontend com Node 22; Dependabot acompanha Maven, npm e Actions.
-- O projeto atualmente declara Java 25 no POM, embora algumas instruções de deploy possam solicitar Java 21. Os artefatos desta fase respeitam o manifesto existente, sem mudar o runtime. Spring Boot foi atualizado dentro da linha 3.5 para a versão 3.5.16; Tomcat 10.1.61, Jackson 2.21.7, PostgreSQL JDBC 42.7.12 e Log4j 2.25.5 foram selecionados por correções de segurança confirmadas no scan. Valide a compatibilidade do runtime e da plataforma antes do deploy.
+- CI em `.github/workflows/verify.yml` testa/verifica backend com Java 21 e testa/builda frontend com Node 22; Dependabot acompanha Maven, npm e Actions.
+- O backend compila e executa com Java 21 em local, CI e contêiner. Spring Boot foi atualizado dentro da linha 3.5 para a versão 3.5.16; Tomcat 10.1.61, Jackson 2.21.7, PostgreSQL JDBC 42.7.12 e Log4j 2.25.5 foram selecionados por correções de segurança confirmadas no scan. Valide a compatibilidade do runtime e da plataforma antes do deploy.
 
 ## Limitações conhecidas
 

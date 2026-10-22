@@ -9,6 +9,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -142,11 +143,11 @@ class WorkspaceSecurityIntegrationTest extends AbstractIntegrationTest {
 
         Instant expired = Instant.now().minusSeconds(25 * 60 * 60);
         jdbc.update("UPDATE import_batch SET created_at = ? WHERE workspace_id = CAST(? AS UUID)",
-                expired, workspaceId);
+                Timestamp.from(expired), workspaceId);
         jdbc.update("UPDATE reconciliation_run SET executed_at = ? WHERE workspace_id = CAST(? AS UUID)",
-                expired, workspaceId);
+                Timestamp.from(expired), workspaceId);
         jdbc.update("UPDATE reconciliation_result SET executed_at = ? WHERE workspace_id = CAST(? AS UUID)",
-                expired, workspaceId);
+                Timestamp.from(expired), workspaceId);
 
         workspaceDataService.deleteExpiredData();
 

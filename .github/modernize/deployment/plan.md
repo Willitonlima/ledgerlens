@@ -7,19 +7,19 @@ Preparar o LedgerLens para deploy do frontend estático na Vercel e do backend S
 ## Descobertas da análise
 
 - Monorepo com backend Java/Spring Boot/Maven em `backend/` e frontend React/Vite/npm em `frontend/`.
-- `backend/pom.xml` define `<java.version>25</java.version>` e Spring Boot `3.5.0`; o pedido menciona JRE 21, portanto há divergência real. O plano preserva o alvo declarado no POM e usará Java/JRE 25 nos artefatos para não fazer downgrade/alteração de runtime sem autorização. A CI seguirá o mesmo alvo. Verificar a compatibilidade do par Spring Boot 3.5.0/Java 25 por build e registrar a limitação se necessário.
+- `backend/pom.xml` definia Java 25 e Spring Boot `3.5.0`; o pedido exige JRE 21. Alinhar POM, Docker e CI a Java 21, mantendo Spring Boot na linha 3.5 e verificando que o projeto compila para esse alvo.
 - Backend já lê `PORT`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` e `ALLOWED_ORIGINS` em produção, expõe apenas `/actuator/health`, e usa Flyway/PostgreSQL. O datasource local possui credenciais de desenvolvimento no YAML.
 - Frontend lê `VITE_API_URL`; no desenvolvimento Vite encaminha `/api` para `localhost:8080`. `frontend/package-lock.json` existe; testes são via Vitest.
 - Importação CSV aceita valores monetários não negativos; conciliação prioriza referência+valor, depois data+valor, depois candidatos por similaridade com tolerância configurável; o matcher usa diferença ERP menos banco. Armazenamento é isolado por UUID de workspace e a retenção padrão é 24 horas.
 
 ## Artefatos previstos
 
-1. `backend/Dockerfile`: build multi-stage usando Maven Wrapper e JDK 25, runtime JRE 25, usuário não-root, perfil `prod`, limite de memória JVM compatível com cgroups e healthcheck HTTP em `/actuator/health`.
+1. `backend/Dockerfile`: build multi-stage usando Maven Wrapper e JDK 21, runtime JRE 21, usuário não-root, perfil `prod`, limite de memória JVM compatível com cgroups e healthcheck HTTP em `/actuator/health`.
 2. `.dockerignore`: excluir VCS, artefatos de build, dependências e arquivos de ambiente/segredos do contexto.
 3. `render.yaml`: blueprint opcional para serviço Docker do backend, healthcheck, variáveis necessárias sem valores secretos e conexão externa a PostgreSQL gerenciado (sem provisionar banco pago automaticamente).
-4. `frontend/vercel.json`: build a partir da raiz `frontend`, rewrites SPA com fallback para `index.html` sem substituir arquivos estáticos, CSP contendo placeholder explícito do domínio de API e cabeçalhos de segurança (HSTS, nosniff, referrer, permissions e frame protection).
-5. `frontend/.env.example`: documentar `VITE_API_URL` com placeholder do endpoint do backend; nunca incluir credenciais.
-6. `.github/workflows/verify.yml`: CI em push/PR com Java 25, testes/verificação Maven e Node compatível com Vite 8, `npm ci`, testes e build.
+4. `frontend/vercel.json`: build a partir da raiz `frontend`, rewrites SPA com fallback para `index.html` sem substituir arquivos estáticos, CSP com `https://SEU-BACKEND.onrender.com` em `connect-src` e cabeçalhos de segurança (HSTS, nosniff, referrer, permissions e frame protection).
+5. `frontend/.env.example`: documentar `VITE_API_URL` com placeholder `https://SEU-BACKEND.onrender.com`; nunca incluir credenciais.
+6. `.github/workflows/verify.yml`: CI em push/PR com Java 21, testes/verificação Maven e Node compatível com Vite 8, `npm ci`, testes e build.
 7. `.github/dependabot.yml`: atualizações semanais Maven, npm e GitHub Actions.
 8. `README.md`: apresentação em pt-BR, placeholders de demo/imagens, Mermaid, instruções local/Windows/Maven, regras e convenção de sinais, deploy, env vars, privacidade/retenção e decisões técnicas.
 9. `backend/pom.xml`: ajustar versões gerenciadas somente para vulnerabilidades críticas/altas confirmadas com patch release compatível, evitando upgrades sem justificativa.
@@ -38,7 +38,7 @@ Não modificar fontes Java/JS, dependências, infraestrutura alheia ao escopo ou
 
 ## Critérios de aceite
 
-- Artefatos da lista presentes e coerentes com o runtime declarado em `pom.xml`.
+- Artefatos da lista presentes e coerentes com Java 21 declarado em `pom.xml`.
 - Nenhum segredo gravado; env vars de produção documentadas, com exemplos não sensíveis.
 - CI executa testes/build do backend e frontend.
 - Rewrites não prejudicam a entrega normal de assets estáticos.
