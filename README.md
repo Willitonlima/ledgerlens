@@ -32,7 +32,7 @@ O frontend é uma SPA estática. Em produção, `VITE_API_URL` aponta para a ori
 
 ## Stack e estrutura
 
-- **Backend:** Java 21 conforme `backend/pom.xml`, Spring Boot 4.0.9 (Spring Framework 7.0.10), Maven, JPA, Flyway, PostgreSQL.
+- **Backend:** Java 25 LTS conforme `backend/pom.xml`, Spring Boot 4.0.9 (Spring Framework 7.0.10), Maven, JPA, Flyway, PostgreSQL.
 - **Frontend:** React, Vite, Tailwind CSS, npm, Vitest e Testing Library.
 - **Testes backend:** JUnit/Spring Boot Test e Testcontainers; os testes de integração precisam de Docker.
 - **Fontes:** Newsreader e Public Sans empacotadas localmente, sem buscar fontes de terceiros em runtime.
@@ -78,7 +78,7 @@ Todas as rotas `/api/v1` exigem `X-Workspace-Id` com UUID.
 
 ### Pré-requisitos
 
-- Java/JDK **21** (mesma versão declarada no POM), Docker Desktop e Node.js 22+ com npm.
+- Java/JDK **25 LTS** (mesma versão declarada no POM), Docker Desktop e Node.js 22+ com npm.
 - O Maven Wrapper (`mvnw`/`mvnw.cmd`) baixa a distribuição Maven especificada pelo projeto.
 
 ### PostgreSQL
@@ -146,57 +146,66 @@ A aplicação abre em `http://localhost:5173` e o proxy do Vite encaminha `/api`
 
 ```bash
 npm test
-npm run build
 ```
+
+O build de produção valida `VITE_API_URL` e falha cedo se a origem HTTPS da API estiver ausente ou inválida. Configure-a conforme `frontend/.env.example` antes de executar `npm run build`; o workflow de CI já fornece uma origem de exemplo.
 
 Os CSVs de exemplo incluem correspondências, divergência e lançamentos ausentes, com mais de 20 resultados para permitir exercitar a paginação.
 
 ## Deploy
 
-Arquitetura recomendada: **frontend Vercel + backend contêiner + PostgreSQL gerenciado**. O backend não deve depender do PostgreSQL local do Compose em produção.
+### Arquitetura de produção
 
-### 1. PostgreSQL gerenciado e backend
+- **Vercel:** frontend React/Vite como site estático.
+- **Supabase:** PostgreSQL gerenciado; o Flyway do backend cria e atualiza as tabelas.
+- **Render:** API Spring Boot em contêiner Java 25, conectada ao pooler Supabase por TLS.
 
-Crie primeiro um PostgreSQL gerenciado no provedor escolhido. Configure backup, TLS/SSL, região compatível, política de retenção e credenciais próprias; use a URL JDBC e os parâmetros TLS recomendados pelo provedor. Não publique credenciais no Git, em imagens Docker, no frontend ou em logs.
+O Supabase não executa esta API Java e o frontend não acessa o banco diretamente. Não adicione a chave `anon` ou `service_role` do Supabase ao frontend: o cliente usa somente a API Spring Boot. O arquivo `render.yaml` configura apenas a API e não cria um banco Supabase.
 
-O Dockerfile está em `backend/Dockerfile` e usa build multi-stage, Maven Wrapper, Java 21, JRE enxuto, usuário não-root, healthcheck e opções de memória que respeitam o limite de memória do contêiner. Defina também um limite de memória no provedor (ou, em teste local, `docker run --memory=512m ...`); `MaxRAMPercentage=75` reserva margem para memória nativa. O contêiner usa o perfil Spring `prod`.
+### Configuração inicial
 
-Variáveis obrigatórias do backend:
+1. **Crie o banco no [Supabase](https://supabase.com/dashboard).** Crie um projeto em uma região próxima ao Render, defina uma senha forte e guarde-a em um gerenciador de senhas. Em **Connect**, selecione o **Session pooler** e copie host, porta, banco e usuário da URI fornecida (consulte o [guia oficial de conexões](https://supabase.com/docs/guides/database/connecting-to-postgres#pooler-session-mode)). Para o Render, use o pooler IPv4 em modo sessão (normalmente porta `5432`); não use a conexão direta IPv6 sem confirmar suporte IPv6 da rede do serviço. A URI JDBC terá este formato:
 
-| Variável | Valor |
-|---|---|
-| `SPRING_DATASOURCE_URL` | URL JDBC do PostgreSQL, por exemplo `jdbc:postgresql://HOST:5432/DB?sslmode=require` (siga a documentação do provedor) |
-| `SPRING_DATASOURCE_USERNAME` | usuário do banco |
-| `SPRING_DATASOURCE_PASSWORD` | senha do banco, armazenada como secret no provedor |
-| `ALLOWED_ORIGINS` | origem exata da SPA, por exemplo `https://SEU-PROJETO.vercel.app`; múltiplas origens separadas por vírgula, sem `*` |
-| `SPRING_PROFILES_ACTIVE` | `prod` (já definido na imagem) |
-| `PORT` | porta atribuída pelo host quando aplicável; o Spring aceita `PORT`, com fallback `8080` |
+   ```text
+   jdbc:postgresql://HOST_DO_POOLER:5432/postgres?sslmode=require
+   ```
 
-**Render (opcional):** o `render.yaml` descreve somente o serviço Web Docker e o healthcheck `/actuator/health`. Crie ou selecione separadamente um PostgreSQL gerenciado e informe as quatro variáveis secretas/por ambiente no painel do Render. O blueprint não provisiona banco pago. O host fornece `PORT`.
+   Use o host e usuário exatos mostrados no painel; o usuário do pooler normalmente inclui o identificador do projeto. Informe a senha separadamente, sem incorporá-la à URL. O backend executa Flyway na inicialização, então não rode `supabase db push` para estas migrations. Como a aplicação não usa a [Data API](https://supabase.com/docs/guides/api) nem o SDK Supabase, desative a **Data API** nas configurações do projeto Supabase para reduzir a superfície pública de acesso às tabelas. A conexão PostgreSQL privada da API continua funcionando.
 
-**Alternativas:** Railway pode executar o serviço Docker e disponibilizar PostgreSQL gerenciado; configure as mesmas variáveis e a URL JDBC (não use a URL interna Railway sem adaptá-la ao formato JDBC). No Fly.io, publique a imagem com `fly deploy` e use PostgreSQL gerenciado externo ou um serviço Postgres Fly; configure secrets com `fly secrets set` e conectividade/TLS apropriados. Recursos, custos, nomes de variáveis e disponibilidade variam por plano/região; confirme nos documentos do provedor antes do deploy.
+2. **Crie o projeto da [Vercel](https://vercel.com/new) primeiro** para obter a URL de produção. Importe o repositório e configure:
+   - **Root Directory:** `frontend`
+   - **Node.js:** `22.12` ou superior, conforme `frontend/package.json`
+   - **Install Command:** `npm ci`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+   - **Production Environment Variable:** `VITE_API_URL=https://ledgerlens-api.onrender.com`
 
-### Ordem do primeiro deploy
+   O arquivo `frontend/vercel.json` já define os comandos, o fallback SPA e cabeçalhos de segurança. A variável `VITE_API_URL` é pública e só deve conter a origem HTTPS da API, sem `/api`, barra final ou segredo. Faça o primeiro deploy e anote a origem final da Vercel, por exemplo `https://ledgerlens.vercel.app`.
 
-1. Crie um PostgreSQL gerenciado e anote a URL JDBC, usuário e senha.
-2. Publique o backend no Render (ou alternativa) e configure as variáveis do banco de dados.
-3. Copie a URL pública do backend para `VITE_API_URL` nas variáveis de build da Vercel e substitua o host placeholder no `connect-src` do CSP em `frontend/vercel.json`.
-4. Publique o frontend na Vercel com diretório raiz `frontend`.
-5. Atualize `ALLOWED_ORIGINS` no backend para a URL pública final da Vercel e redeploy o backend.
+3. **Crie a API no [Render](https://dashboard.render.com/blueprints) usando um Blueprint** e selecione este repositório; o Render detecta o `render.yaml` na raiz. Antes do primeiro deploy, preencha as variáveis solicitadas pelo Blueprint:
 
-### 2. Frontend na Vercel
+   | Variável | Valor |
+   |---|---|
+   | `SPRING_PROFILES_ACTIVE` | `prod` (definido pelo Blueprint/Dockerfile) |
+   | `SPRING_DATASOURCE_URL` | URL JDBC com o host/porta/banco do Session pooler Supabase e `?sslmode=require` |
+   | `SPRING_DATASOURCE_USERNAME` | Usuário exatamente como mostrado em **Connect** no Supabase |
+   | `SPRING_DATASOURCE_PASSWORD` | Senha do banco Supabase, somente no painel seguro do Render |
+   | `ALLOWED_ORIGINS` | Origem exata da produção Vercel, sem caminho e sem barra final |
+   | `DB_POOL_MAX_SIZE` | `5` pelo Blueprint; reduza se o plano do banco tiver limite menor |
 
-Importe o repositório na Vercel e defina **Root Directory** como `frontend`. `frontend/vercel.json` configura `npm ci`, `npm run build`, saída `dist`, fallback de rotas SPA e cabeçalhos de segurança. A Vercel serve arquivos existentes (incluindo `/assets`) antes de aplicar o rewrite de fallback.
+   Mantenha o serviço em uma única instância enquanto usar o pool compartilhado e confirme limites de conexão/plano do Supabase. Não defina `PORT`: o Render fornece essa variável. O healthcheck `/actuator/health` só fica saudável depois que o banco conecta e as migrations Flyway são aplicadas. A imagem usa Java 25, usuário não-root e configurações de memória compatíveis com o contêiner.
 
-Defina `VITE_API_URL` no projeto Vercel **antes do build** como a origem HTTPS do backend, sem `/api` no final (por exemplo, `https://SEU-BACKEND.onrender.com`). A variável é incorporada ao JavaScript público: nunca coloque segredos nela.
+4. **Valide a API** abrindo `https://ledgerlens-api.onrender.com/actuator/health`; a resposta esperada é `{"status":"UP"}`. Se a URL pública gerada para o serviço for diferente, atualize `VITE_API_URL` na Vercel e o host `connect-src` em `frontend/vercel.json` para a mesma origem e faça novo deploy.
 
-Antes de publicar, substitua `https://SEU-BACKEND.onrender.com` no CSP de `frontend/vercel.json` pelo host real do backend, exatamente compatível com `VITE_API_URL`. A CSP é intencionalmente um placeholder e pode bloquear chamadas à API até essa substituição. Revise também `ALLOWED_ORIGINS` no backend com a URL real do frontend. HSTS deve ser usado apenas para domínio servido exclusivamente por HTTPS.
+5. **Valide o frontend** na URL de produção Vercel: carregue os CSVs de demonstração, importe os arquivos, execute a conciliação e confirme que não há erros de CORS no console do navegador. A Vercel faz novos deploys automaticamente após pushes na branch de produção.
 
-### Variáveis de ambiente
+### Ambientes, domínio e operação
 
-- `frontend/.env.example` ilustra `VITE_API_URL`; copie para `frontend/.env` local e substitua o host. Arquivos `.env` reais não devem ser commitados.
-- As variáveis de banco e CORS são apenas de runtime do backend. Use o gerenciador de secrets do host.
-- `ALLOWED_ORIGINS` deve listar a origem pública completa, não um caminho e nem `*`.
+- A origem configurada em `ALLOWED_ORIGINS` precisa ser exata. Ao adicionar domínio próprio, configure o domínio na Vercel, defina todas as origens de produção separadas por vírgula no Render e atualize `connect-src` no CSP em `frontend/vercel.json`; depois redeploy a API e o frontend. Não use `*`.
+- Deploys Preview da Vercel têm domínios diferentes e não são autorizados por padrão. Para testar um Preview contra a API real, adicione explicitamente sua origem ao `ALLOWED_ORIGINS` e remova-a depois; prefira validar com dados sintéticos.
+- `frontend/.env.example` documenta a URL local. Para desenvolvimento, copie-o para `frontend/.env.local` e use `VITE_API_URL=` vazio para que o proxy Vite encaminhe `/api` a `localhost:8080`. Arquivos `.env` reais não devem ser commitados.
+- Guarde a senha do banco somente nos secrets do Render; não coloque credenciais do Supabase em arquivos do repositório, imagens, logs ou variáveis `VITE_*`. Ative MFA nas contas dos provedores e configure backups/retenção no Supabase.
+- O plano `starter` do Render mantém o serviço acordado e evita a latência de cold start de instâncias gratuitas. Confirme preços, região e limites vigentes antes de ativar recursos pagos.
 
 ## Privacidade, isolamento e retenção
 
@@ -216,8 +225,8 @@ Antes de publicar, substitua `https://SEU-BACKEND.onrender.com` no CSP de `front
 - Actuator expõe somente health, sem detalhes; healthcheck Docker/Render consulta `/actuator/health`.
 - Vercel aplica CSP (com host de API a substituir), HSTS, `nosniff`, proteção contra framing, política de referrer e permissões restritas. CSP precisa ser revisada se forem adicionados scripts, fontes ou endpoints externos.
 - `.dockerignore` remove diretórios de build, dependências locais, VCS, env files e chaves do contexto Docker.
-- CI em `.github/workflows/verify.yml` testa/verifica backend com Java 21 e testa/builda frontend com Node 22; Dependabot acompanha Maven, npm e Actions.
-- O backend compila e executa com Java 21 em local, CI e contêiner. Spring Boot 4.0.9 gerencia Spring Framework 7.0.10, acima das versões corrigidas para CVE-2026-47884 e CVE-2026-47890; suas dependências e módulos seguem o BOM do Boot. Valide a compatibilidade do runtime e da plataforma antes do deploy.
+- CI em `.github/workflows/verify.yml` testa/verifica backend com Java 25 e testa/builda frontend com Node 22; Dependabot acompanha Maven, npm e Actions.
+- O backend compila e executa com Java 25 LTS em local, CI e contêiner. Spring Boot 4.0.9 gerencia Spring Framework 7.0.10, acima das versões corrigidas para CVE-2026-47884 e CVE-2026-47890; suas dependências e módulos seguem o BOM do Boot. Valide a compatibilidade do runtime e da plataforma antes do deploy.
 
 ## Limitações conhecidas
 

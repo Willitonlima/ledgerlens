@@ -1,5 +1,5 @@
 # Build with the Java version declared by backend/pom.xml.
-FROM maven:3.9.16-eclipse-temurin-21-alpine AS build
+FROM maven:3.9.16-eclipse-temurin-25-alpine AS build
 WORKDIR /workspace
 
 COPY backend/.mvn/ .mvn/
@@ -9,7 +9,7 @@ RUN chmod +x mvnw
 COPY backend/src/ src/
 RUN ./mvnw -B -ntp -DskipTests package
 
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 WORKDIR /app
 
 RUN addgroup -S -g 10001 app \

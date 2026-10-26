@@ -9,14 +9,14 @@ permissions:
 
 jobs:
   backend:
-    name: Backend (Java 21)
+    name: Backend (Java 25)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: maven
           cache-dependency-path: backend/pom.xml
       - name: Verify backend (tests and package)
@@ -41,4 +41,6 @@ jobs:
         run: npm test
       - name: Build
         working-directory: frontend
+        env:
+          VITE_API_URL: https://ledgerlens-api.onrender.com
         run: npm run build

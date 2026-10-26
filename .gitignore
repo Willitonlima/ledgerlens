@@ -14,3 +14,4 @@ frontend/dist/
 !.env.example
 !**/.env.example
 **/.tsupgrader/
+plan.md

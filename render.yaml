@@ -1,5 +1,5 @@
-# Opcional: blueprint do backend no Render. Configure as variáveis de datasource
-# com os dados do PostgreSQL gerenciado escolhido; este arquivo não cria um banco.
+# Blueprint da API Spring Boot. Crie o banco Supabase separadamente e configure
+# as variáveis sync:false no Render antes do primeiro deploy.
 services:
   - type: web
     name: ledgerlens-api
@@ -8,6 +8,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     healthCheckPath: /actuator/health
+    autoDeploy: true
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -17,5 +18,7 @@ services:
         sync: false
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
+      - key: DB_POOL_MAX_SIZE
+        value: "5"
       - key: ALLOWED_ORIGINS
         sync: false
