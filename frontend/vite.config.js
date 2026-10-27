@@ -9,14 +9,15 @@ export default defineConfig(({ mode }) => {
     if (!apiUrl) {
       throw new Error("Defina VITE_API_URL com a origem HTTPS da API antes do build de produção.");
     }
+    const apiUrlWithoutTrailingSlash = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
     let apiOrigin;
     try {
-      apiOrigin = new URL(apiUrl);
+      apiOrigin = new URL(apiUrlWithoutTrailingSlash);
     } catch {
       throw new Error("VITE_API_URL deve ser uma URL HTTPS válida, sem caminho ou /api.");
     }
-    if (apiOrigin.protocol !== "https:" || apiOrigin.origin !== apiUrl) {
-      throw new Error("VITE_API_URL deve conter somente a origem HTTPS da API, sem barra final, caminho ou query.");
+    if (apiOrigin.protocol !== "https:" || apiOrigin.origin !== apiUrlWithoutTrailingSlash) {
+      throw new Error("VITE_API_URL deve conter somente a origem HTTPS da API, sem caminho ou query.");
     }
   }
 

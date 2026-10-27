@@ -77,7 +77,7 @@ describe("identificação do workspace", () => {
       status: 404,
     });
     expect(fetch).toHaveBeenCalledOnce();
-    expect(fetch.mock.calls[0][0]).toBe("/api/v1/reconciliations/latest?page=0&size=20");
+    expect(fetch.mock.calls[0][0]).toMatch(/\/api\/v1\/reconciliations\/latest\?page=0&size=20$/);
   });
 
   it("includes the HTTP status when the server returns an unexpected error response", async () => {

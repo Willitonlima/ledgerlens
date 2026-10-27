@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? "";
+const BASE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 const WORKSPACE_STORAGE_KEY = "ledgerlens.workspaceId";
 let volatileWorkspaceId;
 
