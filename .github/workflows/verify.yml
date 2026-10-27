@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: Verify backend (tests and package)
         working-directory: backend
-        run: ./mvnw -B -ntp verify
+        run: bash ./mvnw -B -ntp verify
 
   frontend:
     name: Frontend (Node.js 22)
