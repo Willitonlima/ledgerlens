@@ -42,5 +42,5 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          VITE_API_URL: https://ledgerlens-api.onrender.com
+          VITE_API_URL: https://ledgerlens-x6sx.onrender.com
         run: npm run build

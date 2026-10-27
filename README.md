@@ -178,9 +178,9 @@ O Supabase não executa esta API Java e o frontend não acessa o banco diretamen
    - **Install Command:** `npm ci`
    - **Build Command:** `npm run build`
    - **Output Directory:** `dist`
-   - **Production Environment Variable:** `VITE_API_URL=<origem HTTPS ativa da API>`
+   - **Production Environment Variable:** `VITE_API_URL=https://ledgerlens-x6sx.onrender.com`
 
-   O arquivo `frontend/vercel.json` já define os comandos, o fallback SPA e cabeçalhos de segurança. A variável `VITE_API_URL` é pública e só deve conter a origem HTTPS da API, sem `/api`, barra final ou segredo. Faça o primeiro deploy e anote a origem final da Vercel, por exemplo `https://ledgerlens.vercel.app`.
+   O arquivo `frontend/vercel.json` já define os comandos, o fallback SPA e cabeçalhos de segurança. A variável `VITE_API_URL` é pública e só deve conter a origem HTTPS da API, sem `/api`, barra final ou segredo. Neste deploy, use `https://ledgerlens-x6sx.onrender.com` (sem `/` no final). Faça o primeiro deploy e anote a origem final da Vercel, por exemplo `https://ledgerlens.vercel.app`.
 
 3. **Crie a API no [Render](https://dashboard.render.com/blueprints) usando um Blueprint** e selecione este repositório; o Render detecta o `render.yaml` na raiz. Antes do primeiro deploy, preencha as variáveis solicitadas pelo Blueprint:
 
@@ -193,19 +193,19 @@ O Supabase não executa esta API Java e o frontend não acessa o banco diretamen
    | `ALLOWED_ORIGINS` | Origem exata da produção Vercel, sem caminho e sem barra final |
    | `DB_POOL_MAX_SIZE` | `5` pelo Blueprint; reduza se o plano do banco tiver limite menor |
 
-   Mantenha o serviço em uma única instância enquanto usar o pool compartilhado e confirme limites de conexão/plano do Supabase. Não defina `PORT`: o Render fornece essa variável. O healthcheck `/actuator/health` só fica saudável depois que o banco conecta e as migrations Flyway são aplicadas. A imagem usa Java 25, usuário não-root e configurações de memória compatíveis com o contêiner.
+   O Blueprint usa o plano **Free** para a API e não deve pedir uma instância Starter paga. No Free, o Render suspende a API após 15 minutos sem tráfego; a primeira requisição seguinte pode levar cerca de um minuto para responder. Há também limites mensais de horas, banda e build. Use este plano para demonstração e testes, não para produção. O sistema de arquivos do serviço é efêmero; o banco Supabase permanece separado. Não defina `PORT`: o Render fornece essa variável. O healthcheck `/actuator/health` só fica saudável depois que o banco conecta e as migrations Flyway são aplicadas. A imagem usa Java 25, usuário não-root e configurações de memória compatíveis com o contêiner.
 
-4. **Valide a API** abrindo `<origem HTTPS ativa da API>/actuator/health`; a resposta esperada é `{"status":"UP"}`. Um `404` do Render com `x-render-routing: no-server` indica que ainda não há um serviço implantado nesse endereço ou que a origem é diferente da gerada para o serviço. Atualize `VITE_API_URL` na Vercel e o host `connect-src` em `frontend/vercel.json` para a origem ativa e faça novo deploy.
+4. **Valide a API** abrindo `https://ledgerlens-x6sx.onrender.com/actuator/health`; a resposta esperada é `{"status":"UP"}`. Um `404` do Render com `x-render-routing: no-server` indica que ainda não há um serviço implantado nesse endereço ou que a origem é diferente da gerada para o serviço.
 
 5. **Valide o frontend** na URL de produção Vercel: carregue os CSVs de demonstração, importe os arquivos, execute a conciliação e confirme que não há erros de CORS no console do navegador. A Vercel faz novos deploys automaticamente após pushes na branch de produção.
 
 ### Ambientes, domínio e operação
 
-- A origem configurada em `ALLOWED_ORIGINS` precisa ser exata. Ao adicionar domínio próprio, configure o domínio na Vercel, defina todas as origens de produção separadas por vírgula no Render e atualize `connect-src` no CSP em `frontend/vercel.json`; depois redeploy a API e o frontend. Não use `*`.
+- A origem configurada em `ALLOWED_ORIGINS` precisa ser a origem exata do site Vercel (por exemplo, `https://ledgerlens.vercel.app`), sem caminho ou barra final. Defina-a no serviço do Render; atualize também `connect-src` no CSP em `frontend/vercel.json` se o domínio da API mudar; depois redeploy a API e o frontend. Não use `*`.
 - Deploys Preview da Vercel têm domínios diferentes e não são autorizados por padrão. Para testar um Preview contra a API real, adicione explicitamente sua origem ao `ALLOWED_ORIGINS` e remova-a depois; prefira validar com dados sintéticos.
 - `frontend/.env.example` deixa `VITE_API_URL` vazio para desenvolvimento local, permitindo que o proxy Vite encaminhe `/api` a `localhost:8080`. Arquivos `.env` reais não devem ser commitados.
 - Guarde a senha do banco somente nos secrets do Render; não coloque credenciais do Supabase em arquivos do repositório, imagens, logs ou variáveis `VITE_*`. Ative MFA nas contas dos provedores e configure backups/retenção no Supabase.
-- O plano `starter` do Render mantém o serviço acordado e evita a latência de cold start de instâncias gratuitas. Confirme preços, região e limites vigentes antes de ativar recursos pagos.
+- O plano Free do Render suspende a API depois de 15 minutos sem tráfego e pode levar cerca de um minuto para reaquecer. Confirme os limites vigentes; não selecione um plano pago se o objetivo for manter o deploy sem custo.
 
 ## Privacidade, isolamento e retenção
 
