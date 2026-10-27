@@ -33,11 +33,12 @@ export function getWorkspaceId() {
 }
 
 export class ApiError extends Error {
-  constructor(message, status, errors = []) {
+  constructor(message, status, errors = [], retryable = true) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.errors = errors;
+    this.retryable = retryable;
   }
 }
 
@@ -65,11 +66,12 @@ async function request(path, options = {}, { onSlow, responseType } = {}) {
         }
         const message = problem.detail || (
           response.status === 409 ? "Ainda falta enviar os dois arquivos para conciliar." :
+            response.status === 404 ? "A API não foi encontrada no endereço configurado. Confira VITE_API_URL e se o backend está publicado." :
             response.status === 422 ? "Confira os dados do arquivo e tente novamente." :
               response.status === 429 ? "Muitas tentativas em pouco tempo. Aguarde um instante e tente novamente." :
-                "Não foi possível concluir a solicitação. Tente novamente."
+              `Não foi possível concluir a solicitação (HTTP ${response.status}). Confira se o backend está ativo.`
         );
-        throw new ApiError(message, response.status, problem.errors ?? []);
+        throw new ApiError(message, response.status, problem.errors ?? [], response.status !== 404);
       }
       if (responseType === "blob") return response.blob();
       if (response.status === 204) return null;

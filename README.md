@@ -178,7 +178,7 @@ O Supabase não executa esta API Java e o frontend não acessa o banco diretamen
    - **Install Command:** `npm ci`
    - **Build Command:** `npm run build`
    - **Output Directory:** `dist`
-   - **Production Environment Variable:** `VITE_API_URL=https://ledgerlens-api.onrender.com`
+   - **Production Environment Variable:** `VITE_API_URL=<origem HTTPS ativa da API>`
 
    O arquivo `frontend/vercel.json` já define os comandos, o fallback SPA e cabeçalhos de segurança. A variável `VITE_API_URL` é pública e só deve conter a origem HTTPS da API, sem `/api`, barra final ou segredo. Faça o primeiro deploy e anote a origem final da Vercel, por exemplo `https://ledgerlens.vercel.app`.
 
@@ -195,7 +195,7 @@ O Supabase não executa esta API Java e o frontend não acessa o banco diretamen
 
    Mantenha o serviço em uma única instância enquanto usar o pool compartilhado e confirme limites de conexão/plano do Supabase. Não defina `PORT`: o Render fornece essa variável. O healthcheck `/actuator/health` só fica saudável depois que o banco conecta e as migrations Flyway são aplicadas. A imagem usa Java 25, usuário não-root e configurações de memória compatíveis com o contêiner.
 
-4. **Valide a API** abrindo `https://ledgerlens-api.onrender.com/actuator/health`; a resposta esperada é `{"status":"UP"}`. Se a URL pública gerada para o serviço for diferente, atualize `VITE_API_URL` na Vercel e o host `connect-src` em `frontend/vercel.json` para a mesma origem e faça novo deploy.
+4. **Valide a API** abrindo `<origem HTTPS ativa da API>/actuator/health`; a resposta esperada é `{"status":"UP"}`. Um `404` do Render com `x-render-routing: no-server` indica que ainda não há um serviço implantado nesse endereço ou que a origem é diferente da gerada para o serviço. Atualize `VITE_API_URL` na Vercel e o host `connect-src` em `frontend/vercel.json` para a origem ativa e faça novo deploy.
 
 5. **Valide o frontend** na URL de produção Vercel: carregue os CSVs de demonstração, importe os arquivos, execute a conciliação e confirme que não há erros de CORS no console do navegador. A Vercel faz novos deploys automaticamente após pushes na branch de produção.
 
@@ -203,7 +203,7 @@ O Supabase não executa esta API Java e o frontend não acessa o banco diretamen
 
 - A origem configurada em `ALLOWED_ORIGINS` precisa ser exata. Ao adicionar domínio próprio, configure o domínio na Vercel, defina todas as origens de produção separadas por vírgula no Render e atualize `connect-src` no CSP em `frontend/vercel.json`; depois redeploy a API e o frontend. Não use `*`.
 - Deploys Preview da Vercel têm domínios diferentes e não são autorizados por padrão. Para testar um Preview contra a API real, adicione explicitamente sua origem ao `ALLOWED_ORIGINS` e remova-a depois; prefira validar com dados sintéticos.
-- `frontend/.env.example` documenta a URL local. Para desenvolvimento, copie-o para `frontend/.env.local` e use `VITE_API_URL=` vazio para que o proxy Vite encaminhe `/api` a `localhost:8080`. Arquivos `.env` reais não devem ser commitados.
+- `frontend/.env.example` deixa `VITE_API_URL` vazio para desenvolvimento local, permitindo que o proxy Vite encaminhe `/api` a `localhost:8080`. Arquivos `.env` reais não devem ser commitados.
 - Guarde a senha do banco somente nos secrets do Render; não coloque credenciais do Supabase em arquivos do repositório, imagens, logs ou variáveis `VITE_*`. Ative MFA nas contas dos provedores e configure backups/retenção no Supabase.
 - O plano `starter` do Render mantém o serviço acordado e evita a latência de cold start de instâncias gratuitas. Confirme preços, região e limites vigentes antes de ativar recursos pagos.
 

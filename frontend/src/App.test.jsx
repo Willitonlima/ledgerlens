@@ -86,6 +86,21 @@ describe("conciliação da tela principal", () => {
     expect(await screen.findByText(/Envie os arquivos do ERP e do banco/)).toBeInTheDocument();
   });
 
+  it("does not offer a futile retry when the API origin returns 404", async () => {
+    fetchLatestReconciliation.mockRejectedValueOnce(new ApiError(
+      "A API não foi encontrada no endereço configurado. Confira VITE_API_URL e se o backend está publicado.",
+      404,
+      [],
+      false,
+    ));
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "A API não foi encontrada no endereço configurado. Confira VITE_API_URL e se o backend está publicado.",
+    );
+    expect(screen.queryByRole("button", { name: "Tentar de novo" })).not.toBeInTheDocument();
+  });
+
   it("uploads both example CSVs and runs them through reconciliation", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
