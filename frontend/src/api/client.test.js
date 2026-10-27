@@ -58,4 +58,42 @@ describe("identificação do workspace", () => {
     await expect(fetchLatestReconciliation()).resolves.toEqual({ items: [] });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("explains when the configured API origin has no matching route and does not retry", async () => {
+    vi.resetModules();
+    const fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new SyntaxError("Resposta não é JSON");
+      },
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { fetchLatestReconciliation } = await import("./client.js");
+
+    await expect(fetchLatestReconciliation()).rejects.toMatchObject({
+      message: "A API não foi encontrada no endereço configurado. Confira VITE_API_URL e se o backend está publicado.",
+      retryable: false,
+      status: 404,
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0][0]).toMatch(/\/api\/v1\/reconciliations\/latest\?page=0&size=20$/);
+  });
+
+  it("includes the HTTP status when the server returns an unexpected error response", async () => {
+    vi.resetModules();
+    const fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { fetchLatestReconciliation } = await import("./client.js");
+
+    await expect(fetchLatestReconciliation()).rejects.toMatchObject({
+      message: "Não foi possível concluir a solicitação (HTTP 500). Confira se o backend está ativo.",
+      status: 500,
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
 });

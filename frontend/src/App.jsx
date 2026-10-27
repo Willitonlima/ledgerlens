@@ -34,6 +34,10 @@ function Step({ number, title, state, detail }) {
   );
 }
 
+function retryAction(error, action) {
+  return error.retryable === false ? undefined : action;
+}
+
 export default function App() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,7 @@ export default function App() {
       setPage(latest.page);
     } catch (err) {
       clearWakeupMessage();
-      setError({ message: err.message, action: () => loadLatest(requestedPage, requestedStatus) });
+      setError({ message: err.message, action: retryAction(err, () => loadLatest(requestedPage, requestedStatus)) });
     } finally {
       setLoading(false);
     }
@@ -102,7 +106,7 @@ export default function App() {
           errors: err.errors ?? [],
         },
       }));
-      setError({ message: err.message, action: () => sendUpload(sourceType, file) });
+      setError({ message: err.message, action: retryAction(err, () => sendUpload(sourceType, file)) });
       return false;
     }
   }
@@ -117,7 +121,7 @@ export default function App() {
       await loadLatest(0, status);
     } catch (err) {
       clearWakeupMessage();
-      setError({ message: err.message, action: handleExecute });
+      setError({ message: err.message, action: retryAction(err, handleExecute) });
     } finally {
       setExecuting(false);
     }
@@ -161,7 +165,7 @@ export default function App() {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      setError({ message: err.message, action: handleExport });
+      setError({ message: err.message, action: retryAction(err, handleExport) });
     } finally {
       setExporting(false);
     }
@@ -181,7 +185,7 @@ export default function App() {
       await loadLatest(0, status);
     } catch (err) {
       clearWakeupMessage();
-      setError({ message: err.message, action: handleClearWorkspace });
+      setError({ message: err.message, action: retryAction(err, handleClearWorkspace) });
     } finally {
       setClearing(false);
     }
@@ -333,9 +337,11 @@ export default function App() {
         {error && (
           <div aria-live="assertive" className="error-message" role="alert">
             <span>{error.message}</span>
-            <button className="text-button" onClick={error.action ?? (() => loadLatest())} type="button">
-              Tentar de novo
-            </button>
+            {error.action && (
+              <button className="text-button" onClick={error.action} type="button">
+                Tentar de novo
+              </button>
+            )}
           </div>
         )}
 

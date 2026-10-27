@@ -3,3 +3,12 @@ data,descricao,valor,referencia
 2025-01-05,Conta de energia,310.00,REF-002
 2025-01-08,Pagamento de salario,2500.00,REF-003
 2025-01-10,Compra de equipamento,899.90,REF-004
+2025-01-15,Compra de software anual,450.00,ERP-005
+2025-01-20,Servico de consultoria juridica,780.25,ERP-006
+2025-01-25,Compra de embalagens industriais,165.75,ERP-007
+2025-02-02,Manutencao preventiva de equipamentos,420.00,ERP-008
+2025-02-08,Licenca de sistema de estoque,210.50,ERP-009
+2025-02-14,Frete de insumos importados,96.30,ERP-010
+2025-02-20,Hospedagem de infraestrutura,135.99,ERP-011
+2025-02-26,Assessoria tributaria mensal,550.00,ERP-012
+2025-03-04,Seguro de equipamentos industriais,680.00,ERP-013

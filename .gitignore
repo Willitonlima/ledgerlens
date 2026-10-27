@@ -10,3 +10,8 @@ frontend/dist/
 *.iml
 .DS_Store
 .env
+.env.*
+!.env.example
+!**/.env.example
+**/.tsupgrader/
+plan.md

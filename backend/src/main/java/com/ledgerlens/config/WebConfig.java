@@ -26,7 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
         }
         this.allowedOrigins = StringUtils.commaDelimitedListToStringArray(origins);
         if (environment.acceptsProfiles(Profiles.of("prod"))
-                && java.util.Arrays.stream(allowedOrigins).anyMatch("*"::equals)) {
+                && java.util.Arrays.stream(allowedOrigins).anyMatch(origin -> origin.contains("*"))) {
             throw new IllegalStateException("ALLOWED_ORIGINS não pode conter curinga no perfil prod.");
         }
         if (allowedOrigins.length == 0 || java.util.Arrays.stream(allowedOrigins).anyMatch(String::isBlank)) {

@@ -74,15 +74,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().headers(headers).body(problem);
     }
 
-    /** Métodos ainda não implementados viram 501 com mensagem legível para o frontend. */
-    @ExceptionHandler(UnsupportedOperationException.class)
-    public ProblemDetail handleNotImplemented(UnsupportedOperationException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_IMPLEMENTED);
-        problem.setTitle("Funcionalidade não implementada");
-        problem.setDetail("Esta funcionalidade ainda não está disponível.");
-        return problem;
-    }
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
         LOGGER.error("Erro inesperado ao processar requisição da API.", ex);

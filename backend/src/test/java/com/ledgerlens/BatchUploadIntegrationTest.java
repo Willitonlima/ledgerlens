@@ -7,7 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -154,7 +154,7 @@ class BatchUploadIntegrationTest extends AbstractIntegrationTest {
         return new MockMultipartFile("file", "statement.csv", "text/csv", csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    private static MockHttpServletRequestBuilder upload(MockMultipartFile file, String sourceType) {
+    private static MockMultipartHttpServletRequestBuilder upload(MockMultipartFile file, String sourceType) {
         return multipart("/api/v1/batches/upload")
                 .file(file)
                 .param("sourceType", sourceType)
